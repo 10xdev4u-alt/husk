@@ -53,5 +53,9 @@
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
   },
-  "trustedDependencies": ["@biomejs/biome"]
+  "trustedDependencies": ["@biomejs/biome"],
+  "dependencies": {
+    "@anthropic-ai/sdk": "^0.104.1",
+    "openai": "^6.42.0"
+  }
 }
