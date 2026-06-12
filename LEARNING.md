@@ -50,6 +50,41 @@ Biome is the modern replacement for ESLint + Prettier. Single binary, 10–100x 
 
 ## Design decisions log
 
+### 2026-06-13 — v0.1.0 first public release
+
+**What landed in v0.1.0:**
+
+- Core agent loop with stop conditions, parallel tool execution
+- Anthropic + OpenAI provider adapters
+- 5 built-in tools (Read, Write, Edit, Bash with safety denylist, Grep)
+- InMemory + File-backed memory stores
+- Typed event emitter for observability
+- Steering: system prompt + numbered rules + few-shot examples
+- Tool registry helpers (defineTool, schema builders)
+- CLI: `husk run "<prompt>"` with --model, --provider, --tools, --memory, --max
+- 19 unit tests, all passing
+- Build via tsup: 35KB ESM + 26KB d.ts
+- GitHub Actions CI for typecheck/lint/test/build
+
+**Decisions that aged well:**
+
+- TypeScript + ESM + Node 18+ choice: zero friction for end users
+- bun for dev: install was 5 seconds, tests run in 200ms
+- Biome over ESLint+Prettier: one tool, one config, fast
+- Provider interface as a simple `chat()` method: easy to mock, easy to extend
+- Tool errors return `isError: true` instead of throwing: the model sees the error and self-corrects, like a real assistant
+
+**Decisions I'm slightly worried about:**
+
+- The `JSONSchema` minimal subset might be too restrictive for some tools. We're likely to need to widen it in v0.2 when users start writing custom tools with complex nested schemas.
+- The Bash denylist is conservative but not bulletproof. v0.2 should add a per-command confirmation mode for high-trust environments.
+- FileStore's lock map can grow unbounded if many sessions are created. Need a cleanup mechanism or WeakRef pattern in v0.2.
+
+**What changed my mind during the build:**
+
+- I started with `Role = 'system' | 'user' | 'assistant' | 'tool'` but ended up never using the 'tool' role — the Anthropic-style user-role-with-tool_result-blocks abstraction covers everything. The 'tool' role in the type is dead weight; v0.2 should clean it up.
+- I tried using `process.env.ANTHROPIC_API_KEY` directly in the provider. Fine for end users, awkward for testing. v0.2 should add explicit `apiKey` requirement + remove the env fallback (or move it to a factory function).
+
 ### 2026-06-13 — Project started
 
 **Why now?** The OSS agent framework landscape is fragmented: LangGraph is powerful but Python-only, Vercel AI SDK is too thin, Claude/OpenAI Agent SDKs lock you in, Mastra lacks evals, and Codebuff is proprietary. There's a clear gap for a TypeScript-first, provider-agnostic, batteries-included agent harness that ships memory + tools + evals + observability + sub-agents in one drop-in library.
