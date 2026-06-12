@@ -60,3 +60,29 @@ export { Agent } from './core/agent.js';
 // Providers
 export { AnthropicProvider, type AnthropicProviderOptions } from './providers/anthropic.js';
 export { OpenAIProvider, type OpenAIProviderOptions } from './providers/openai.js';
+
+// Tool helpers
+export {
+  defineTool,
+  objectSchema,
+  stringField,
+  numberField,
+  integerField,
+  booleanField,
+  arrayField,
+  objectField,
+} from './tools/registry.js';
+
+// Built-in tools
+export {
+  Read,
+  Write,
+  Edit,
+  Bash,
+  Grep,
+  type ReadInput,
+  type WriteInput,
+  type EditInput,
+  type BashInput,
+  type GrepInput,
+} from './tools/builtin/index.js';
