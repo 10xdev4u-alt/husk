@@ -1,6 +1,6 @@
 {
   "name": "@princetheprogrammerbtw/husk",
-  "version": "0.0.1",
+  "version": "0.1.0",
   "description": "Provider-agnostic agent harness — memory, tools, sub-agents, and observability wrapped around any LLM.",
   "type": "module",
   "main": "./dist/index.js",
@@ -44,6 +44,14 @@
   ],
   "author": "princetheprogrammerbtw <10xdev4u@gmail.com>",
   "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/10xdev4u-alt/husk.git"
+  },
+  "bugs": {
+    "url": "https://github.com/10xdev4u-alt/husk/issues"
+  },
+  "homepage": "https://github.com/10xdev4u-alt/husk#readme",
   "engines": {
     "node": ">=18.0.0"
   },
