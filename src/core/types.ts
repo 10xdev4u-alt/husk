@@ -164,9 +164,16 @@ export interface ChatChunk {
 /**
  * A model provider. Implementations translate the provider-agnostic
  * `ChatRequest` to the provider's wire format and back.
+ *
+ * `name` is the provider family ("anthropic", "openai", "ollama").
+ * `model` is the specific model id the provider is configured for
+ * (e.g. "claude-opus-4-6"). The agent loop reads `model` when building
+ * requests, so providers should be configured with a model at
+ * construction time.
  */
 export interface Provider {
   readonly name: string;
+  readonly model: string;
   chat(request: ChatRequest): Promise<ChatResponse>;
   stream?(request: ChatRequest): AsyncIterable<ChatChunk>;
 }
