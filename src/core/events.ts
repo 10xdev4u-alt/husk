@@ -12,6 +12,7 @@
  */
 
 import type { ChatRequest, ChatResponse, Logger, Message, ToolResult } from './types.js';
+export type { Logger };
 
 // ───────────────────────────────────────────────────────────────────
 // Event union
