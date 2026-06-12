@@ -17,11 +17,7 @@
   "bin": {
     "husk": "./dist/cli/index.js"
   },
-  "files": [
-    "dist",
-    "README.md",
-    "LICENSE"
-  ],
+  "files": ["dist", "README.md", "LICENSE"],
   "scripts": {
     "build": "tsup",
     "dev": "tsup --watch",
@@ -56,5 +52,6 @@
     "@types/node": "^22.10.0",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
-  }
+  },
+  "trustedDependencies": ["@biomejs/biome"]
 }
