@@ -56,3 +56,7 @@ export { buildSystemPrompt, buildExampleMessages } from './core/steering.js';
 
 // Agent
 export { Agent } from './core/agent.js';
+
+// Providers
+export { AnthropicProvider, type AnthropicProviderOptions } from './providers/anthropic.js';
+export { OpenAIProvider, type OpenAIProviderOptions } from './providers/openai.js';
