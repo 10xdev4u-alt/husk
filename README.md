@@ -5,34 +5,42 @@
 [![npm version](https://img.shields.io/npm/v/%40princetheprogrammerbtw%2Fhusk.svg)](https://www.npmjs.com/package/@princetheprogrammerbtw/husk)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Node](https://img.shields.io/node/v/%40princetheprogrammerbtw%2Fhusk.svg)](https://nodejs.org)
+[![CI](https://github.com/10xdev4u-alt/husk/actions/workflows/ci.yml/badge.svg)](./.github/workflows/ci.yml)
 
 ## What is Husk?
 
 Most LLM calls are a brain in a jar — they can think, but can't act, remember, verify their own work, or show you what they did. **Husk** is the body, hands, memory, and nervous system you wrap around any LLM (Claude, GPT, Gemini, local models) to turn it into a real agent.
 
 ```ts
-import { Agent, Anthropic, Read, Write, Bash, Memory } from '@princetheprogrammerbtw/husk';
+import { Agent, AnthropicProvider, Read, Write, Edit, Bash, Grep, FileStore } from '@princetheprogrammerbtw/husk';
 
 const agent = new Agent({
-  model: new Anthropic({ model: 'claude-opus-4-6' }),
-  tools: [Read, Write, Bash],
-  memory: new Memory({ backend: 'file', path: './memory.jsonl' }),
+  model: new AnthropicProvider({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  tools: [Read, Write, Edit, Bash, Grep],
+  memory: new FileStore({ path: './.husk/memory' }),
+  steering: {
+    systemPrompt: 'You are a careful code reviewer. Cite specific line numbers.',
+    rules: [
+      'Read the file in full before commenting.',
+      'Prioritize security and correctness over style.',
+    ],
+  },
 });
 
-const result = await agent.run('Refactor the auth module to use Argon2id');
+const result = await agent.run('Review src/core/agent.ts');
 console.log(result.output);
 ```
 
 ## Features
 
-- 🧠 **Provider-agnostic** — Anthropic, OpenAI, Google, Ollama — bring your own model
-- 🛠️ **Tool registry** — Drop-in tools with JSON Schema validation
-- 💾 **Memory** — In-memory for sessions, file-backed for cross-session persistence
-- 👀 **Observability** — Event-based, plug into any tracer
-- 🧭 **Steering** — System prompts, rules, few-shot examples
-- 🤝 **Sub-agents** — Spawn specialized agents from inside another
-- 📦 **Batteries included** — 5 built-in tools to start, easy to add more
-- 🔌 **Composable** — Use as a library, a CLI, or embed in your app
+- 🧠 **Provider-agnostic** — Anthropic, OpenAI, more coming. Bring your own model.
+- 🛠️ **5 built-in tools** — `Read`, `Write`, `Edit`, `Bash` (with safety denylist), `Grep` (ripgrep with grep fallback)
+- 💾 **Memory** — `InMemoryStore` for sessions, `FileStore` for persistence
+- 👀 **Observability** — typed event emitter, drop in any logger or tracer
+- 🧭 **Steering** — system prompts, numbered rules, few-shot examples
+- 🤝 **Sub-agents** — compose agents inside agents (see [multi-agent example](./examples/03-multi-agent))
+- 📦 **Batteries included** — 35KB ESM bundle, full TypeScript types
+- 🖥️ **CLI** — `husk run "<prompt>"` for one-shot invocations
 
 ## Install
 
@@ -44,38 +52,73 @@ pnpm add @princetheprogrammerbtw/husk
 bun add @princetheprogrammerbtw/husk
 ```
 
+You'll also need an API key for the provider you choose:
+
+```bash
+export ANTHROPIC_API_KEY=sk-ant-...    # for Claude
+export OPENAI_API_KEY=sk-...           # for GPT
+```
+
 ## Quickstart
 
+The smallest possible agent:
+
 ```ts
-import { Agent, Anthropic } from '@princetheprogrammerbtw/husk';
+import { Agent, AnthropicProvider } from '@princetheprogrammerbtw/husk';
 
 const agent = new Agent({
-  model: new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY }),
+  model: new AnthropicProvider({ model: 'claude-opus-4-6' }),
 });
 
-const result = await agent.run('What is the capital of France?');
+const result = await agent.run('What is the capital of France? Answer in one sentence.');
 console.log(result.output); // "Paris"
 ```
 
-See [`examples/`](./examples) for more, including code review and multi-agent orchestration.
+## CLI
 
-## Roadmap
+```bash
+# Run an agent from the command line
+husk run "What is the capital of France?"
+husk run "Refactor src/foo.ts" --tools read,edit,write
+husk run "Summarize README.md" --provider openai --model gpt-5
+husk run --help
+```
 
-- **v0.1.0** — Core agent loop, Anthropic + OpenAI adapters, 5 built-in tools, memory, observability, sub-agents
-- **v0.2.0** — Eval runner, OTel export, Ollama adapter
-- **v0.3.0** — Vector memory, hosted dashboard
-- **v1.0.0** — Stable API, marketplace, enterprise features
+## Examples
+
+Three worked examples in the `examples/` directory:
+
+- **[01-hello-agent](./examples/01-hello-agent)** — minimal agent, no tools
+- **[02-code-reviewer](./examples/02-code-reviewer)** — full tool set + steering for code review
+- **[03-multi-agent](./examples/03-multi-agent)** — three agents composed in sequence (planner → coder → reviewer)
+
+Run any example with `bun run examples/0X-name/index.ts`.
 
 ## Documentation
 
-- [Quickstart](./examples/01-hello-agent) — your first agent in 5 minutes
-- [API Reference](./docs/api.md) _(coming soon)_
-- [Architecture](./docs/architecture.md) _(coming soon)_
-- [Learning Journal](./LEARNING.md) — design decisions, trade-offs, lessons learned
+- **[Learning Journal](./LEARNING.md)** — design decisions, trade-offs, and lessons learned
+- **[Changelog](./CHANGELOG.md)** — release history
+- **[Contributing](./CONTRIBUTING.md)** — how to contribute
 
-## Contributing
+## Architecture
 
-PRs welcome. See [CONTRIBUTING.md](./CONTRIBUTING.md) _(coming soon)_.
+```
+src/
+├── core/          # agent loop, types, events, memory, steering
+├── providers/     # anthropic, openai (more coming)
+├── tools/         # registry helpers + 5 built-ins
+├── cli/           # the husk command
+└── index.ts       # public API surface
+```
+
+Every piece composes through a typed event stream. The agent loop is ~150 lines. Provider adapters are the only files that know about provider-specific wire formats.
+
+## Roadmap
+
+- **v0.1.0** ✅ Core loop, Anthropic + OpenAI, 5 built-in tools, memory, observability, CLI
+- **v0.2.0** Eval runner, OTel export, Ollama adapter
+- **v0.3.0** Vector memory, hosted dashboard
+- **v1.0.0** Stable API, marketplace, enterprise features
 
 ## License
 
