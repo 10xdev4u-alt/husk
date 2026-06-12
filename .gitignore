@@ -10,7 +10,7 @@ build/
 .tsbuildinfo
 
 # Bun
-bun.lockb
+# (lockfile is tracked for reproducible installs; only the binary artifact is ignored)
 
 # Environment
 .env
