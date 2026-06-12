@@ -1,12 +1,58 @@
 /**
  * Husk — public API entry point.
  *
- * Modules are exported as they are implemented. The goal of this file is to
- * be the single import surface: `import { Agent, Anthropic, Read, Write, Bash, Memory } from '@princetheprogrammerbtw/husk'`.
+ * Single import surface for users:
+ *   import { Agent, Anthropic, OpenAI, Read, Write, Bash, Edit, Grep,
+ *           InMemoryStore, FileStore, ConsoleLogger } from '@princetheprogrammerbtw/husk';
  *
- * Re-exports will be added incrementally as features land (see commit history).
+ * Re-exports are added incrementally as features land (see commit history).
  */
 
-// Public API surface will be populated as features land.
-// See LEARNING.md for the design rationale behind the module layout.
 export const VERSION = '0.0.1';
+
+// Core types
+export type {
+  Role,
+  Message,
+  MessageContent,
+  ContentBlock,
+  TextBlock,
+  ToolUseBlock,
+  ToolResultBlock,
+  JSONSchema,
+  JSONSchemaField,
+  ToolDefinition,
+  ToolContext,
+  ToolResult,
+  Provider,
+  ChatRequest,
+  ChatResponse,
+  ChatChunk,
+  TokenUsage,
+  StopReason,
+  MemoryStore,
+  SteeringConfig,
+  Example,
+  AgentConfig,
+  AgentResult,
+  LogLevel,
+  Logger,
+} from './core/types.js';
+
+// Events
+export {
+  AgentEventEmitter,
+  ConsoleLogger,
+  logEventsTo,
+  type AgentEvent,
+  type AgentEventHandler,
+} from './core/events.js';
+
+// Memory
+export { InMemoryStore, FileStore, type FileStoreOptions } from './core/memory.js';
+
+// Steering helpers
+export { buildSystemPrompt, buildExampleMessages } from './core/steering.js';
+
+// Agent
+export { Agent } from './core/agent.js';
