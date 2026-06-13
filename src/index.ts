@@ -51,6 +51,21 @@ export {
 // Memory
 export { InMemoryStore, FileStore, type FileStoreOptions } from './core/memory.js';
 
+// Vector memory
+export {
+  InMemoryVectorStore,
+  HashEmbedder,
+  cosineSimilarity,
+  defineMemorySearchTool,
+  defineRememberTool,
+  type MemoryItem,
+  type SearchResult,
+  type VectorStore,
+  type EmbeddingProvider,
+  type HashEmbedderOptions,
+  type MemoryToolOptions,
+} from './memory/vector-index.js';
+
 // Steering helpers
 export { buildSystemPrompt, buildExampleMessages } from './core/steering.js';
 
