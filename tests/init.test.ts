@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { type InitResult, initCommand } from '../src/cli/init.js';
+import { InitError, type InitResult, initCommand } from '../src/cli/init.js';
 
 let workDir: string;
 
@@ -165,12 +165,19 @@ describe('initCommand — paths and idempotency', () => {
     expect(result.projectDir).toBe(target);
   });
 
-  test('skips writing to files that already exist (does not throw)', async () => {
+  test('re-running init on an existing project throws without --force', async () => {
     const target = join(workDir, 'p');
     await initCommand({ target });
-    // Second run: every file is already there. The current implementation
-    // overwrites — but the call must not throw.
-    const result = await initCommand({ target });
+    // Second run: every file is already there. The new overwrite gate
+    // throws InitError unless the caller opts in with --force.
+    await expect(initCommand({ target })).rejects.toThrow(InitError);
+  });
+
+  test('--force lets init overwrite an existing project', async () => {
+    const target = join(workDir, 'p');
+    await initCommand({ target });
+    // With --force, the call must not throw and must return a fresh result.
+    const result = await initCommand({ target, force: true });
     expect(result.files.length).toBeGreaterThan(0);
   });
 });

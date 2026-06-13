@@ -39,6 +39,14 @@ export interface InitOptions {
   template?: InitTemplate;
   /** Skip `npm install` / `bun install` after scaffolding. Defaults to false. */
   skipInstall?: boolean;
+  /**
+   * Overwrite existing files in the target directory without warning.
+   * Default (false) throws `InitError` if the target is a non-empty
+   * existing project. Pass `true` to overwrite in-place; pass `'prompt'`
+   * to ask the user interactively (TTY-only — non-TTY falls back to
+   * throwing).
+   */
+  force?: boolean | 'prompt';
 }
 
 /** Result of running init — useful for tests and for the CLI to print a summary. */
@@ -78,11 +86,35 @@ export async function isExistingProject(dir: string): Promise<boolean> {
   return !(await isEmptyDir(dir));
 }
 
+/**
+ * Thrown by `initCommand` when the target directory already contains
+ * files and the caller did not pass `--force` (or pass `force: true`).
+ * Carries the directory path so the CLI can print a friendly message.
+ */
+export class InitError extends Error {
+  override readonly name = 'InitError';
+  readonly projectDir: string;
+  constructor(message: string, projectDir: string) {
+    super(message);
+    this.projectDir = projectDir;
+  }
+}
+
 /** Entry point for the `husk init` command. */
 export async function initCommand(options: InitOptions): Promise<InitResult> {
   const provider = options.provider ?? 'anthropic';
   const template = options.template ?? 'minimal';
   const projectDir = resolve(options.target);
+  const force = options.force ?? false;
+
+  // Overwrite gate. We throw (not warn) because silently clobbering a
+  // user's existing files is the wrong default for a scaffolder.
+  if (!force && (await isExistingProject(projectDir))) {
+    throw new InitError(
+      `Target directory ${projectDir} is not empty. Re-run with --force to overwrite existing files, or pass a different <dir>.`,
+      projectDir,
+    );
+  }
 
   await mkdir(projectDir, { recursive: true });
 
