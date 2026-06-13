@@ -180,6 +180,8 @@ Six worked examples in the [`examples/`](./examples) directory:
 - **[07-streaming](./examples/07-streaming)** — `agent.streamRun()` for token-by-token output
 - **[08-validation](./examples/08-validation)** — sandboxed Write tool via `pathAllowed()` validation rules
 - **[09-otel-sdk](./examples/09-otel-sdk)** — real OpenTelemetry SDK pipeline with span export
+- **[10-mcp-filesystem](./examples/10-mcp-filesystem)** — connect to a real MCP filesystem server, use its tools as Husk tools
+- **[11-approval](./examples/11-approval)** — `requireApproval` + `onApprovalRequest` callback for safe tool execution
 
 Run any example with `bun run examples/0X-name/index.ts`.
 
