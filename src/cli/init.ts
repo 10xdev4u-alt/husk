@@ -262,6 +262,62 @@ export function runGitInit(
   return commitResult.status ?? 1;
 }
 
+/**
+ * Ask the user a question on stdin/stdout. Returns the trimmed answer,
+ * or the default if the user just hits enter.
+ *
+ * In non-TTY contexts (CI, piped input, AI agents), this throws
+ * `PromptError` so callers can fall back to defaults. Pass
+ * `nonTTYDefault` to instead return a default value silently.
+ *
+ * Kept deliberately small — no checkbox lists, no fancy formatting.
+ * If we ever need that, swap to `@clack/prompts` like create-vite
+ * does. For v0.4.1 the simple line-prompt is enough.
+ */
+export class PromptError extends Error {
+  override readonly name = 'PromptError';
+}
+
+export interface PromptOptions {
+  default?: string;
+  choices?: readonly string[];
+  nonTTYDefault?: string;
+}
+
+export async function prompt(question: string, options: PromptOptions = {}): Promise<string> {
+  if (!process.stdin.isTTY) {
+    if (options.nonTTYDefault !== undefined) return options.nonTTYDefault;
+    throw new PromptError(
+      'Cannot prompt for input: stdin is not a TTY. Pass the value via flags or HUSK_INIT_NON_INTERACTIVE=1.',
+    );
+  }
+
+  const { createInterface } = await import('node:readline/promises');
+  const { stdin, stdout } = process;
+  const rl = createInterface({ input: stdin, output: stdout });
+
+  try {
+    let suffix = '';
+    if (options.default) suffix = ` [${options.default}]`;
+    if (options.choices && options.choices.length > 0) {
+      suffix += ` (${options.choices.join('/')})`;
+    }
+    const answer = await rl.question(`${question}${suffix}: `);
+    const trimmed = answer.trim();
+    if (!trimmed) return options.default ?? '';
+    if (options.choices && !options.choices.includes(trimmed)) {
+      // eslint-disable-next-line no-console
+      console.error(
+        `  Invalid choice '${trimmed}'. Expected one of: ${options.choices.join(', ')}.`,
+      );
+      return prompt(question, options); // recurse for a second try
+    }
+    return trimmed;
+  } finally {
+    rl.close();
+  }
+}
+
 /** Entry point for the `husk init` command. */
 export async function initCommand(options: InitOptions): Promise<InitResult> {
   const provider = options.provider ?? 'anthropic';
