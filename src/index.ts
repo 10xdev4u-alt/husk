@@ -8,7 +8,7 @@
  * Re-exports are added incrementally as features land (see commit history).
  */
 
-export const VERSION = '0.0.1';
+export const VERSION = '0.1.0';
 
 // Core types
 export type {
