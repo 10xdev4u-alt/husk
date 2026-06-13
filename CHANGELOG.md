@@ -4,6 +4,45 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.2.0] — 2026-06-13
+
+### Added
+
+- **Ollama provider** (`src/providers/ollama.ts`): local model support
+  with zero API cost. Delegates to the OpenAI SDK because Ollama
+  exposes an OpenAI-compatible API. Default model: `llama3.2`, default
+  base URL: `http://localhost:11434/v1`.
+- **Eval runner** (`src/evals/`): turn Husk from a tool into a
+  testable framework. Six built-in assertions (`equals`, `contains`,
+  `notContains`, `matches`, `fn`, `lengthBetween`), `defineSuite()`,
+  and `runSuite()` with error isolation and optional `failFast`.
+- **Tracer interface** (`src/obs/tracer.ts`): OTel-inspired minimal
+  interface for observability backends. `NoopTracer` is the zero-
+  overhead default.
+- **EventTracer** (`src/obs/mapper.ts`): maps `AgentEvent` → tracer
+  spans. One trace span per `agent.run`, iteration span per loop,
+  tool span per tool call. Tokens, durations, and tool results all
+  become structured span attributes.
+- **Example 04 — evals**: runnable example demonstrating the eval
+  runner with a fake agent (no API key required).
+- **8 provider tests + 7 tracer tests + 20 eval tests** for a total
+  of 53 unit tests, all passing.
+
+### Changed
+
+- Total tests: 19 → 53 (a 2.8x increase in coverage)
+- Test file count: 1 → 4
+- Public API surface grew: `OllamaProvider`, all eval functions,
+  all obs types now reachable from the single import.
+
+### Deferred to v0.3.0
+
+- Vector memory store (chroma, sqlite-vec)
+- Real `@opentelemetry/api` adapter (`@princetheprogrammerbtw/husk/otel` subpath)
+- `husk eval <file>` CLI subcommand for running suites from the terminal
+- `husk init` CLI subcommand for scaffolding new agent projects
+- Google Gemini provider (Ollama already covers OpenAI-compatible)
+
 ## [0.1.1] — 2026-06-13
 
 ### Fixed
