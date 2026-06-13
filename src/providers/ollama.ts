@@ -24,8 +24,8 @@
  * For a list of models: `ollama list` (in your terminal).
  */
 
-import { OpenAIProvider } from './openai.js';
 import type { Provider } from '../core/types.js';
+import { OpenAIProvider } from './openai.js';
 
 export interface OllamaProviderOptions {
   /** Model id (run `ollama list` to see what's pulled locally). Default: 'llama3.2'. */
