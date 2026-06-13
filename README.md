@@ -178,6 +178,8 @@ Six worked examples in the [`examples/`](./examples) directory:
 - **[05-vector-memory](./examples/05-vector-memory)** — long-term memory via semantic recall across sessions
 - **[06-husk-init](./examples/06-husk-init)** — programmatic demo of the `husk init` scaffolder
 - **[07-streaming](./examples/07-streaming)** — `agent.streamRun()` for token-by-token output
+- **[08-validation](./examples/08-validation)** — sandboxed Write tool via `pathAllowed()` validation rules
+- **[09-otel-sdk](./examples/09-otel-sdk)** — real OpenTelemetry SDK pipeline with span export
 
 Run any example with `bun run examples/0X-name/index.ts`.
 
