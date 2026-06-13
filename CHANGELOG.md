@@ -4,6 +4,18 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.1.1] — 2026-06-13
+
+### Fixed
+
+- **CLI shebang**: added `#!/usr/bin/env node` to the CLI bundle via
+  tsup's `banner` option. Without this, npm stripped the `husk` bin
+  entry on publish, so `husk run` wasn't available after install.
+  Users can now run `husk run "<prompt>"` after `npm install -g`
+  or via `npx husk`.
+- **VERSION constant**: bumped to 0.1.0 (was stale at 0.0.1 from
+  the initial scaffold).
+
 ## [0.1.0] — 2026-06-13
 
 The first public release of Husk — a provider-agnostic, batteries-included

@@ -60,6 +60,7 @@ export { Agent } from './core/agent.js';
 // Providers
 export { AnthropicProvider, type AnthropicProviderOptions } from './providers/anthropic.js';
 export { OpenAIProvider, type OpenAIProviderOptions } from './providers/openai.js';
+export { OllamaProvider, type OllamaProviderOptions } from './providers/ollama.js';
 
 // Tool helpers
 export {
