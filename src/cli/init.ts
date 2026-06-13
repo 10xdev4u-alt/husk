@@ -548,7 +548,7 @@ function renderPackageJson(args: { provider: InitProvider; template: InitTemplat
       typecheck: 'tsc --noEmit',
     },
     dependencies: {
-      '@princetheprogrammerbtw/husk': '^0.4.0',
+      '@princetheprogrammerbtw/husk': '^0.4.1',
     },
     devDependencies: {
       '@types/node': '^20.0.0',
