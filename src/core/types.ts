@@ -162,6 +162,35 @@ export interface ChatChunk {
 }
 
 /**
+ * Events yielded by `Agent.streamRun()`. Mirrors the agent loop's
+ * internal flow and gives consumers a single subscription point for
+ * streaming output, tool calls, and the final result.
+ *
+ * The sequence is always:
+ *   - one or more 'text' / 'tool_call_start' / 'tool_call_delta'
+ *   - (optional) one or more 'tool_result' after tool execution
+ *   - ...repeat if the model wanted more tools
+ *   - finally, a 'done' event with the final output and usage
+ */
+export type AgentStreamEvent =
+  | { readonly type: 'text'; readonly text: string }
+  | { readonly type: 'tool_call_start'; readonly id: string; readonly name: string }
+  | { readonly type: 'tool_call_delta'; readonly id: string; readonly inputDelta: string }
+  | {
+      readonly type: 'tool_result';
+      readonly id: string;
+      readonly name: string;
+      readonly result: ToolResult;
+    }
+  | {
+      readonly type: 'done';
+      readonly output: string;
+      readonly usage: TokenUsage;
+      readonly iterations: number;
+    }
+  | { readonly type: 'error'; readonly message: string };
+
+/**
  * A model provider. Implementations translate the provider-agnostic
  * `ChatRequest` to the provider's wire format and back.
  *

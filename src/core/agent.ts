@@ -34,6 +34,7 @@ import { buildExampleMessages, buildSystemPrompt } from './steering.js';
 import type {
   AgentConfig,
   AgentResult,
+  AgentStreamEvent,
   ContentBlock,
   JSONSchema,
   Message,
@@ -272,6 +273,205 @@ export class Agent {
     return result;
   }
 
+  /**
+   * Streaming version of run(). Yields `AgentStreamEvent`s as the
+   * agent loop progresses — text deltas as they arrive, tool calls
+   * as they're discovered, tool results after execution, and a final
+   * 'done' event with the output and usage.
+   *
+   * The agent loop is the same as run(): the same memory, the same
+   * tools, the same iteration cap. We just route the provider call
+   * through `provider.stream()` instead of `provider.chat()` and
+   * yield chunks instead of returning a single response.
+   *
+   * Requires the provider to implement `stream?` — falls back to a
+   * `provider.chat()`-based simulation if it doesn't (yields a
+   * single 'text' event with the complete response). This keeps
+   * streamRun() usable with custom providers that only implement chat.
+   */
+  async *streamRun(input: string): AsyncIterable<AgentStreamEvent> {
+    if (!this.provider.stream) {
+      // Fallback for providers that only implement chat(). Run the
+      // full loop synchronously, then yield the final output as a
+      // single text event followed by a done event. Less interactive
+      // but at least functional.
+      const result = await this.run(input);
+      yield { type: 'text', text: result.output };
+      yield {
+        type: 'done',
+        output: result.output,
+        usage: result.usage,
+        iterations: result.iterations,
+      };
+      return;
+    }
+
+    this.signal?.throwIfAborted();
+    await this.events.emit({ type: 'agent:start', input, sessionId: this.sessionId });
+
+    // ── Compose initial message history ─────────────────
+    const messages: Message[] = [];
+    if (this.steering?.examples) {
+      messages.push(...buildExampleMessages(this.steering.examples));
+    }
+    if (this.memory) {
+      const stored = await this.memory.read(this.sessionId);
+      messages.push(...stored);
+    }
+    const userMessage: Message = { role: 'user', content: input };
+    messages.push(userMessage);
+    await this.recordMessage(userMessage);
+
+    const system = this.steering ? buildSystemPrompt(this.steering) : undefined;
+    const tools = this.tools.length > 0 ? this.tools : undefined;
+
+    let totalInputTokens = 0;
+    let totalOutputTokens = 0;
+    let iterations = 0;
+
+    while (iterations < this.maxIterations) {
+      this.signal?.throwIfAborted();
+      iterations += 1;
+      await this.events.emit({ type: 'agent:iteration', iteration: iterations });
+
+      const request = {
+        model: this.provider.model,
+        messages,
+        ...(tools ? { tools } : {}),
+        ...(system ? { system } : {}),
+        temperature: this.temperature,
+        ...(this.maxTokens ? { maxTokens: this.maxTokens } : {}),
+      };
+      await this.events.emit({ type: 'provider:request', request });
+
+      // Stream the response. Buffer tool_use deltas so we can execute
+      // tools only after their JSON input is complete.
+      const toolInputBuffers = new Map<string, string>();
+      const toolNames = new Map<string, string>();
+      let streamedText = '';
+      let finalStopReason: import('./types.js').StopReason = 'end_turn';
+      let usage: { inputTokens: number; outputTokens: number } = {
+        inputTokens: 0,
+        outputTokens: 0,
+      };
+
+      for await (const chunk of this.provider.stream(request)) {
+        if (chunk.type === 'text' && chunk.text) {
+          streamedText += chunk.text;
+          yield { type: 'text', text: chunk.text };
+        } else if (chunk.type === 'tool_use_start' && chunk.toolUse) {
+          toolInputBuffers.set(chunk.toolUse.id, '');
+          toolNames.set(chunk.toolUse.id, chunk.toolUse.name);
+          yield { type: 'tool_call_start', id: chunk.toolUse.id, name: chunk.toolUse.name };
+        } else if (
+          chunk.type === 'tool_use_delta' &&
+          chunk.toolUse?.inputDelta &&
+          chunk.toolUse.id
+        ) {
+          const current = toolInputBuffers.get(chunk.toolUse.id) ?? '';
+          toolInputBuffers.set(chunk.toolUse.id, current + chunk.toolUse.inputDelta);
+          yield {
+            type: 'tool_call_delta',
+            id: chunk.toolUse.id,
+            inputDelta: chunk.toolUse.inputDelta,
+          };
+        } else if (chunk.type === 'message_end') {
+          if (chunk.stopReason) finalStopReason = chunk.stopReason;
+          if (chunk.usage) usage = chunk.usage;
+        }
+      }
+
+      totalInputTokens += usage.inputTokens;
+      totalOutputTokens += usage.outputTokens;
+
+      // Build the assistant message from what we streamed.
+      const assistantMessage: Message = {
+        role: 'assistant',
+        content: [
+          ...(streamedText ? [{ type: 'text' as const, text: streamedText }] : []),
+          ...Array.from(toolInputBuffers.entries()).map(([id, inputDelta]) => ({
+            type: 'tool_use' as const,
+            id,
+            name: toolNames.get(id) ?? '',
+            input: parseToolInput(inputDelta),
+          })),
+        ],
+      };
+      await this.recordMessage(assistantMessage);
+
+      if (finalStopReason === 'tool_use') {
+        // Execute the buffered tool calls in parallel. We can't yield
+        // inside Promise.all (it would need an async generator, not a
+        // Promise), so we collect results first, then yield the
+        // tool_result events sequentially.
+        const assistantContent = assistantMessage.content;
+        const contentArray = typeof assistantContent === 'string' ? [] : assistantContent;
+        const toolUses = contentArray.filter((b): b is ToolUseBlock => b.type === 'tool_use');
+        const results = await Promise.all(
+          toolUses.map(async (tu) => {
+            await this.events.emit({
+              type: 'tool:call',
+              id: tu.id,
+              name: tu.name,
+              input: tu.input,
+            });
+            const ts = Date.now();
+            const result = await this.executeTool(tu.name, tu.input);
+            const dur = Date.now() - ts;
+            await this.events.emit({
+              type: 'tool:result',
+              id: tu.id,
+              name: tu.name,
+              result,
+              durationMs: dur,
+            });
+            return { tu, result };
+          }),
+        );
+        for (const { tu, result } of results) {
+          yield { type: 'tool_result', id: tu.id, name: tu.name, result };
+        }
+        const toolMessage: Message = {
+          role: 'user',
+          content: results.map(
+            ({ tu, result }): ContentBlock => ({
+              type: 'tool_result',
+              toolUseId: tu.id,
+              content: result.output,
+              ...(result.isError ? { isError: true } : {}),
+            }),
+          ),
+        };
+        await this.recordMessage(toolMessage);
+        continue;
+      }
+
+      // Natural end. Yield the done event.
+      yield {
+        type: 'done',
+        output: streamedText,
+        usage: { inputTokens: totalInputTokens, outputTokens: totalOutputTokens },
+        iterations,
+      };
+      await this.events.emit({
+        type: 'agent:end',
+        output: streamedText,
+        iterations,
+        durationMs: 0,
+      });
+      return;
+    }
+
+    // Hit maxIterations.
+    this.logger.warn(`streamRun hit max iterations (${this.maxIterations})`, {
+      sessionId: this.sessionId,
+    });
+    yield {
+      type: 'error',
+      message: `Hit maxIterations (${this.maxIterations}) without end_turn`,
+    };
+  }
+
   // ── Internals ────────────────────────────────────────────────
 
   private async recordMessage(message: Message): Promise<void> {
@@ -344,4 +544,24 @@ function validateInput(input: unknown, schema: JSONSchema): { valid: boolean; er
     }
   }
   return { valid: true };
+}
+
+/**
+ * Parse the accumulated JSON-string input for a streamed tool call.
+ * Tool input arrives as a series of partial JSON fragments that
+ * concatenate into a complete JSON object. We try to parse, and
+ * fall back to the raw string on parse error (the schema validator
+ * downstream will surface the issue to the model).
+ */
+function parseToolInput(accumulated: string): Record<string, unknown> {
+  if (!accumulated) return {};
+  try {
+    const parsed = JSON.parse(accumulated);
+    if (typeof parsed === 'object' && parsed !== null) {
+      return parsed as Record<string, unknown>;
+    }
+    return { value: parsed };
+  } catch {
+    return { _raw: accumulated };
+  }
 }
