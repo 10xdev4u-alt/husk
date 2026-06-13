@@ -182,6 +182,8 @@ Six worked examples in the [`examples/`](./examples) directory:
 - **[09-otel-sdk](./examples/09-otel-sdk)** — real OpenTelemetry SDK pipeline with span export
 - **[10-mcp-filesystem](./examples/10-mcp-filesystem)** — connect to a real MCP filesystem server, use its tools as Husk tools
 - **[11-approval](./examples/11-approval)** — `requireApproval` + `onApprovalRequest` callback for safe tool execution
+- **[12-mcp-server](./examples/12-mcp-server)** — expose Husk tools as an MCP server for Claude Desktop
+- **[13-vector-store-sqlite](./examples/13-vector-store-sqlite)** — persistent vector memory with `SqliteVectorStore`
 
 Run any example with `bun run examples/0X-name/index.ts`.
 
