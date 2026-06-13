@@ -87,3 +87,23 @@ export {
   type BashInput,
   type GrepInput,
 } from './tools/builtin/index.js';
+
+// Evals
+export {
+  equals,
+  contains,
+  notContains,
+  matches,
+  fn,
+  lengthBetween,
+  defineSuite,
+  runSuite,
+  type Assertion,
+  type AssertionResult,
+  type EvalCase,
+  type EvalSuite,
+  type CaseResult,
+  type SuiteResult,
+  type AgentFactory,
+  type RunSuiteOptions,
+} from './evals/index.js';
