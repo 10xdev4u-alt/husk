@@ -77,7 +77,21 @@ export OPENAI_API_KEY=sk-...           # for GPT
 
 ## Quickstart
 
-The smallest possible agent — model, prompt, done:
+**The fastest way in** — scaffold a new project with `husk init`:
+
+```bash
+npx @princetheprogrammerbtw/husk init my-agent
+cd my-agent
+cp .env.example .env       # paste your API key
+npm install                # or pnpm / bun
+npm start                  # runs src/hello-agent.ts
+```
+
+You'll get a runnable Husk project in under 30 seconds — `package.json`, `tsconfig.json`, a working `src/hello-agent.ts`, and a README. Use `--provider openai` to switch the example, or `--template full` to also get a `code-reviewer.ts` example.
+
+---
+
+**Or build one inline** — the smallest possible agent, no scaffolding:
 
 ```ts
 import { Agent, AnthropicProvider } from '@princetheprogrammerbtw/husk';
