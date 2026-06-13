@@ -73,11 +73,11 @@ describe('initCommand — defaults', () => {
     ]);
   });
 
-  test('package.json points at husk ^0.6.0', async () => {
+  test('package.json points at husk ^0.7.0', async () => {
     const result = await initCommand({ target: join(workDir, 'p') });
     const pkg = JSON.parse(await readProjectFile(result, 'package.json'));
     expect(pkg.type).toBe('module');
-    expect(pkg.dependencies['@princetheprogrammerbtw/husk']).toBe('^0.6.0');
+    expect(pkg.dependencies['@princetheprogrammerbtw/husk']).toBe('^0.7.0');
     expect(pkg.devDependencies.typescript).toBeTruthy();
     expect(pkg.devDependencies.tsx).toBeTruthy();
   });
