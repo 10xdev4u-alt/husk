@@ -37,14 +37,23 @@ export interface InitOptions {
   provider?: InitProvider;
   /** Template flavor. Defaults to 'minimal'. */
   template?: InitTemplate;
-  /** Skip `npm install` / `bun install` after scaffolding. Defaults to false. */
-  skipInstall?: boolean;
   /**
-   * Overwrite existing files in the target directory without warning.
-   * Default (false) throws `InitError` if the target is a non-empty
-   * existing project. Pass `true` to overwrite in-place; pass `'prompt'`
-   * to ask the user interactively (TTY-only — non-TTY falls back to
-   * throwing).
+   * Auto-run the detected package manager's install command after
+   * writing files. Defaults to false. Skipped in non-TTY contexts
+   * unless the user explicitly opts in (so AI agents and CI don't
+   * hang on a 60-second install they didn't ask for).
+   */
+  install?: boolean;
+  /**
+   * Override the detected package manager. Useful when you want to
+   * scaffold for a specific runtime regardless of what's in the cwd.
+   */
+  packageManager?: PackageManager;
+  /**
+   * Override the overwrite gate. See InitError.
+   *  - true: overwrite without asking
+   *  - false (default): throw if the target isn't empty
+   *  - 'prompt': ask the user interactively (TTY-only)
    */
   force?: boolean | 'prompt';
 }
@@ -59,6 +68,10 @@ export interface InitResult {
   provider: InitProvider;
   /** Template flavor used. */
   template: InitTemplate;
+  /** Which package manager was detected / used. */
+  packageManager: PackageManager;
+  /** Exit code from the install step. 0 = success, undefined = not run. */
+  installExitCode: number | undefined;
 }
 
 /**
@@ -158,6 +171,32 @@ export function getInstallCommand(pm: PackageManager): string[] {
   return pm === 'yarn' ? [pm] : [pm, 'install'];
 }
 
+/**
+ * Spawn the package manager's install command. Uses spawnSync so the
+ * output streams directly to the parent's stdio. Returns the exit
+ * code (0 = success). Throws nothing — the caller inspects the code
+ * and surfaces a friendly message if it failed.
+ *
+ * `HUSK_INIT_SKIP_INSTALL=1` short-circuits the spawn (used by tests
+ * and by `--no-install` flags upstream).
+ */
+export function runInstall(
+  targetDir: string,
+  pm: PackageManager,
+  env: NodeJS.ProcessEnv = process.env,
+): number {
+  if (env.HUSK_INIT_SKIP_INSTALL === '1') return 0;
+  const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
+  const [cmd, ...args] = getInstallCommand(pm);
+  if (!cmd) return 1;
+  const result = spawnSync(cmd, args, {
+    cwd: targetDir,
+    stdio: 'inherit',
+    env,
+  });
+  return result.status ?? 1;
+}
+
 /** Entry point for the `husk init` command. */
 export async function initCommand(options: InitOptions): Promise<InitResult> {
   const provider = options.provider ?? 'anthropic';
@@ -209,7 +248,11 @@ export async function initCommand(options: InitOptions): Promise<InitResult> {
     files.push('src/code-reviewer.ts');
   }
 
-  return { projectDir, files, provider, template };
+  // Optional install step. Skipped unless the caller opted in.
+  const pm = options.packageManager ?? detectPackageManager(projectDir);
+  const installExitCode = options.install ? runInstall(projectDir, pm) : undefined;
+
+  return { projectDir, files, provider, template, packageManager: pm, installExitCode };
 }
 
 // ----- Templates (inline so they ship with the bundle) -----
