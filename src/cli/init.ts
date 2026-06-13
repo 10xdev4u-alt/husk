@@ -11,6 +11,13 @@
  *
  * v0.4.0 — first cut. Templates are inline strings so they ship with
  * the CLI bundle (no extra files to manage).
+ *
+ * v0.4.1 — adds:
+ *   - --force flag to overwrite existing files
+ *   - --install flag to auto-run package manager install
+ *   - --git flag to auto-init a git repo with an initial commit
+ *   - interactive prompts for missing flags when run in a TTY
+ *   - isEmptyDir() / isExistingProject() helpers used by all of the above
  */
 
 import { mkdir, writeFile } from 'node:fs/promises';
@@ -44,6 +51,31 @@ export interface InitResult {
   provider: InitProvider;
   /** Template flavor used. */
   template: InitTemplate;
+}
+
+/**
+ * Returns true if a directory exists AND contains at least one entry that
+ * isn't `.git` or `.git/`. An empty dir, a dir with only `.git/`, or a
+ * nonexistent dir all return false.
+ */
+export async function isEmptyDir(dir: string): Promise<boolean> {
+  const { readdir } = await import('node:fs/promises');
+  let entries: string[];
+  try {
+    entries = await readdir(dir);
+  } catch {
+    return true; // doesn't exist yet — treat as empty
+  }
+  const real = entries.filter((e) => e !== '.git');
+  return real.length === 0;
+}
+
+/**
+ * Returns true if a directory exists AND contains files we'd be about
+ * to overwrite. Used to gate the --force / overwrite-prompt logic.
+ */
+export async function isExistingProject(dir: string): Promise<boolean> {
+  return !(await isEmptyDir(dir));
 }
 
 /** Entry point for the `husk init` command. */
