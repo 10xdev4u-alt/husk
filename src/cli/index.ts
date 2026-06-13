@@ -39,6 +39,7 @@ import {
   Write,
   runSuite,
 } from '../index.js';
+import { defaultCliApprovalPrompt } from './approval-prompt.js';
 import { type InitOptions, initCommand } from './init.js';
 
 const TOOL_REGISTRY = { read: Read, write: Write, edit: Edit, bash: Bash, grep: Grep } as const;
@@ -87,6 +88,7 @@ async function runCommand(): Promise<void> {
       memory: { type: 'string' },
       max: { type: 'string' },
       stream: { type: 'boolean' },
+      'no-approval': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
     allowPositionals: true,
@@ -138,6 +140,7 @@ async function runCommand(): Promise<void> {
     ...(tools.length > 0 ? { tools: tools as readonly ToolDefinition[] } : {}),
     memory,
     maxIterations,
+    ...(values['no-approval'] ? {} : { onApprovalRequest: defaultCliApprovalPrompt() }),
   });
 
   if (values.stream) {
@@ -470,6 +473,8 @@ Run options:
   --memory <kind>    'in-memory' (default) or 'file'
   --max <n>          Max agent iterations (default: 25)
   --stream           Stream the response token-by-token (requires provider.stream())
+  --no-approval      Block all tools that have requireApproval: true
+                     (default: prompt on stderr/stdin)
   -h, --help         Show this help
   -v, --version      Show version
 
