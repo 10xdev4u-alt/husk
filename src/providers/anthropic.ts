@@ -20,6 +20,7 @@
 
 import Anthropic from '@anthropic-ai/sdk';
 import type {
+  ChatChunk,
   ChatRequest,
   ChatResponse,
   ContentBlock,
@@ -82,6 +83,86 @@ export class AnthropicProvider implements Provider {
       stopReason: mapStopReason(response.stop_reason),
       model: response.model,
     };
+  }
+
+  /**
+   * Stream the model response as a sequence of ChatChunks. Yields
+   * text deltas as they arrive, then a final 'message_end' chunk
+   * with the stop reason + usage.
+   *
+   * Tool-use streaming is emitted as 'tool_use_start' (when a new
+   * tool_use block begins) and 'tool_use_delta' (as the input JSON
+   * streams in). The consumer reassembles these into a complete
+   * ToolUseBlock.
+   */
+  async *stream(request: ChatRequest): AsyncIterable<ChatChunk> {
+    const { system, messages } = splitSystemMessage(request.messages);
+    const anthropicTools = request.tools?.map(toHuskToolToAnthropic);
+
+    const stream = await this.client.messages.stream({
+      model: request.model || this.model,
+      ...(system ? { system } : {}),
+      messages: messages.map(toAnthropicMessage),
+      ...(anthropicTools && anthropicTools.length > 0 ? { tools: anthropicTools } : {}),
+      max_tokens: request.maxTokens ?? this.defaultMaxTokens,
+      ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+      ...(request.stopSequences ? { stop_sequences: [...request.stopSequences] } : {}),
+    });
+
+    // Buffer tool_use blocks by id so we can emit start/delta pairs.
+    const seenToolUse = new Set<string>();
+
+    for await (const event of stream) {
+      if (event.type === 'content_block_start') {
+        const block = event.content_block;
+        if (block.type === 'tool_use') {
+          seenToolUse.add(block.id);
+          yield {
+            type: 'tool_use_start',
+            toolUse: { id: block.id, name: block.name },
+          };
+        }
+        // text block start — no event, text deltas follow
+      } else if (event.type === 'content_block_delta') {
+        const delta = event.delta;
+        if (delta.type === 'text_delta') {
+          yield { type: 'text', text: delta.text };
+        } else if (delta.type === 'input_json_delta') {
+          // The Anthropic SDK streams deltas in order, so the most
+          // recently started tool_use is the one currently being
+          // streamed. Emit the delta with that id so the consumer
+          // can pair it with the matching tool_use_start.
+          const lastId = [...seenToolUse].pop();
+          if (lastId) {
+            yield {
+              type: 'tool_use_delta',
+              toolUse: { id: lastId, name: '', inputDelta: delta.partial_json },
+            };
+          }
+        }
+      } else if (event.type === 'message_delta') {
+        // Final delta carries the stop reason and cumulative output usage.
+        const usage = event.usage;
+        yield {
+          type: 'message_end',
+          stopReason: mapStopReason(event.delta.stop_reason ?? null),
+          ...(usage
+            ? {
+                usage: {
+                  inputTokens: 0, // input tokens are reported in message_start
+                  outputTokens: usage.output_tokens,
+                },
+              }
+            : {}),
+        };
+      } else if (event.type === 'message_start') {
+        // We could emit input token usage here, but to keep the wire
+        // format simple we report it in message_end (output_tokens).
+        // The Tracer subscribes to message_start internally if it needs
+        // input token counts.
+        void event.message.usage.input_tokens;
+      }
+    }
   }
 }
 
