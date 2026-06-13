@@ -133,3 +133,12 @@ export {
   type SpanKind,
   type SpanOptions,
 } from './obs/index.js';
+
+// Project scaffolding (`husk init`)
+export {
+  initCommand,
+  type InitOptions,
+  type InitResult,
+  type InitProvider,
+  type InitTemplate,
+} from './cli/init.js';
