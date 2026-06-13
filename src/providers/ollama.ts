@@ -24,7 +24,7 @@
  * For a list of models: `ollama list` (in your terminal).
  */
 
-import type { Provider } from '../core/types.js';
+import type { ChatChunk, Provider } from '../core/types.js';
 import { OpenAIProvider } from './openai.js';
 
 export interface OllamaProviderOptions {
@@ -61,5 +61,22 @@ export class OllamaProvider implements Provider {
     // instance. Passing through means the inner OpenAI provider uses
     // request.model OR falls back to its own. Either way it's correct.
     return this.inner.chat(request);
+  }
+
+  /**
+   * Stream a response from Ollama. Delegates to the inner OpenAIProvider
+   * since Ollama's API is wire-compatible with OpenAI's Chat Completions
+   * streaming. The same ChatChunk shape applies.
+   *
+   * Throws if the inner OpenAIProvider somehow lost its stream()
+   * implementation — which would be a programming error, not a runtime
+   * concern (all shipped providers implement stream()).
+   */
+  stream(request: Parameters<Provider['chat']>[0]): AsyncIterable<ChatChunk> {
+    const innerStream = this.inner.stream;
+    if (!innerStream) {
+      throw new Error('Inner OpenAIProvider does not implement stream() — this is a bug');
+    }
+    return innerStream(request);
   }
 }
