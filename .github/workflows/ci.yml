@@ -57,7 +57,17 @@ jobs:
       - name: Build
         run: bun run build
 
+      - name: Configure npm auth
+        # Write the token to ~/.npmrc explicitly. npm 11+ reads NPM_TOKEN
+        # from the env, but subprocesses spawned via bunx don't always
+        # inherit it. Writing to .npmrc is the bulletproof path — both
+        # `npm publish` and `bunx npm publish` pick it up.
+        run: |
+          echo "//registry.npmjs.org/:_authToken=${NPM_TOKEN}" > ~/.npmrc
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+
       - name: Publish to npm
-        run: bunx npm publish --access public
+        run: npm publish --access public
         env:
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
