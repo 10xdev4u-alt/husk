@@ -79,6 +79,7 @@ export { Agent } from './core/agent.js';
 export { AnthropicProvider, type AnthropicProviderOptions } from './providers/anthropic.js';
 export { OpenAIProvider, type OpenAIProviderOptions } from './providers/openai.js';
 export { OllamaProvider, type OllamaProviderOptions } from './providers/ollama.js';
+export { GeminiProvider, type GeminiProviderOptions } from './providers/gemini.js';
 
 // Tool helpers
 export {
