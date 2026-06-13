@@ -14,6 +14,11 @@ folder. Useful for:
 bun run examples/06-husk-init/index.ts
 ```
 
+The example calls `initCommand` with `{ provider: 'anthropic', template: 'full' }`
+and prints the returned `InitResult`. Set `HUSK_INIT_SKIP_INSTALL=1` and
+`HUSK_INIT_SKIP_GIT=1` in the environment to short-circuit the auto-install and
+auto-git steps the same way the test suite does.
+
 ## What you'll see
 
 ```
@@ -43,6 +48,12 @@ If you'd rather use the CLI directly:
 husk init my-agent
 husk init my-agent --provider openai
 husk init my-agent --template full
+
+# v0.4.1 additions
+husk init my-agent --git --install               # git init + npm install in one go
+husk init my-agent --package-manager pnpm        # override detection
+husk init my-agent --force                       # overwrite an existing dir
+husk init my-agent --no-interactive              # skip prompts (CI use)
 ```
 
 The CLI and the programmatic API produce identical file sets.
@@ -50,16 +61,23 @@ The CLI and the programmatic API produce identical file sets.
 ## Library usage
 
 ```ts
-import { initCommand } from '@princetheprogrammerbtw/husk/cli';
-// (the cli subpath is forthcoming — for now import from the package directly)
-import { initCommand } from '@princetheprogrammerbtw/husk';
+import { initCommand, type InitOptions } from '@princetheprogrammerbtw/husk';
 
 const result = await initCommand({
   target: './my-agent',
   provider: 'openai',
   template: 'full',
+  // v0.4.1 options:
+  // install: true,            // auto-run npm/pnpm/bun install
+  // git: true,                // auto-init git + initial commit
+  // gitAuthor: 'A <a@b>',     // override committer
+  // packageManager: 'pnpm',   // override detection
+  // force: true,              // overwrite existing dir
+  // noInteractive: true,      // skip prompts (CI use)
 });
 console.log(result.files);
+console.log(result.installExitCode);  // undefined if not run
+console.log(result.gitExitCode);      // undefined if not run
 ```
 
 ## What this demonstrates
