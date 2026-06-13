@@ -51,8 +51,17 @@ export class OpenAIProvider implements Provider {
     this.model = options.model ?? 'gpt-5';
     this.client = new OpenAI({
       apiKey: options.apiKey ?? process.env.OPENAI_API_KEY,
-      ...(options.baseURL ? { baseURL: options.baseURL } : {}),
-      ...(options.organization ? { organization: options.organization } : {}),
+      // v0.8.1: auto-read OPENAI_API_BASE from env. The OpenAI SDK
+      // doesn't do this on its own, so without this users with
+      // a custom base URL had to pass it explicitly even when
+      // they had the env var set. Same for OPENAI_ORG_ID /
+      // OPENAI_ORGANIZATION.
+      ...((options.baseURL ?? process.env.OPENAI_API_BASE)
+        ? { baseURL: options.baseURL ?? process.env.OPENAI_API_BASE }
+        : {}),
+      ...((options.organization ?? process.env.OPENAI_ORG_ID)
+        ? { organization: options.organization ?? process.env.OPENAI_ORG_ID }
+        : {}),
     });
   }
 
