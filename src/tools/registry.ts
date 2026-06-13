@@ -12,6 +12,7 @@
  */
 
 import type { JSONSchema, JSONSchemaField, ToolDefinition } from '../core/types.js';
+import type { ValidationRuleSet } from './validation.js';
 
 /**
  * Helper to build a tool definition with less boilerplate. The runtime
@@ -24,11 +25,24 @@ export function defineTool<TInput>(tool: {
   description: string;
   inputSchema: JSONSchema;
   execute: (input: TInput) => Promise<string> | string;
+  /**
+   * Optional validation rules. Pass a single rule or an array of
+   * rules. See src/tools/validation.ts for the framework.
+   */
+  validate?: ValidationRuleSet;
+  /**
+   * If true, the tool's execute() is gated on user approval. The
+   * agent loop surfaces the pending call to the caller and only
+   * proceeds if approved.
+   */
+  requireApproval?: boolean;
 }): ToolDefinition<TInput> {
   return {
     name: tool.name,
     description: tool.description,
     inputSchema: tool.inputSchema,
+    ...(tool.validate ? { validate: tool.validate } : {}),
+    ...(tool.requireApproval ? { requireApproval: tool.requireApproval } : {}),
     execute: async (input) => {
       const result = await tool.execute(input);
       return typeof result === 'string' ? { output: result } : result;

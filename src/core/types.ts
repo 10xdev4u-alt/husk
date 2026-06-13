@@ -116,6 +116,25 @@ export interface ToolDefinition<TInput = unknown> {
   readonly name: string;
   readonly description: string;
   readonly inputSchema: JSONSchema;
+  /**
+   * Optional validation rules that run BEFORE execute(). Each rule
+   * returns null on pass or an error message string on failure. If
+   * any rule fails, the tool isn't executed and the error flows
+   * back to the model with isError: true.
+   *
+   * See src/tools/validation.ts for the framework + common validators
+   * (pathAllowed, commandDenylist, maxFieldSize, noShellMetacharacters).
+   */
+  readonly validate?: import('../tools/validation.js').ValidationRuleSet;
+  /**
+   * If true, the tool's execute() is gated on user approval. The
+   * agent loop surfaces the pending call to the caller (CLI prompts,
+   * server returns a 202, etc.) and only proceeds if approved.
+   *
+   * Tools that mutate production data, deploy infrastructure, or
+   * run untrusted code should set this to true. Default: false.
+   */
+  readonly requireApproval?: boolean;
   readonly execute: (input: TInput, ctx: ToolContext) => Promise<ToolResult>;
 }
 
