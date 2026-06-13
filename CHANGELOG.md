@@ -4,6 +4,46 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.5.0] — 2026-06-13
+
+### Added
+
+- **Streaming responses** — the `stream?` method on the `Provider` interface (declared but unimplemented in v0.3.0) is now shipped on all three providers:
+  - `AnthropicProvider.stream()` wraps `client.messages.stream()` as an `AsyncIterable<ChatChunk>` (text deltas, tool_use_start, tool_use_delta, message_end).
+  - `OpenAIProvider.stream()` wraps `client.chat.completions.create({ stream: true, stream_options: { include_usage: true } })` (same chunk shape; tool_call index tracking for parallel tool calls).
+  - `OllamaProvider.stream()` delegates to the inner OpenAIProvider (Ollama is OpenAI-compatible).
+- **`Agent.streamRun(input)`** — the streaming counterpart to `Agent.run()`. Yields `AgentStreamEvent`s: `text` deltas, `tool_call_start` / `tool_call_delta`, `tool_result`, `done`, `error`. Mirrors `run()` exactly (same memory, tools, iteration cap, error isolation). Falls back to a single `text` + `done` event when the provider doesn't implement `stream()`.
+- **`--stream` flag for `husk run`** — routes the prompt through `streamRun()`. Text deltas go to stdout; tool calls and results go to stderr so the streamed output is pipe-friendly.
+- **Tool validation framework** (`src/tools/validation.ts`):
+  - `ValidationContext` (toolName, cwd, input, env) + `ValidationRule` (name, check fn) + `ValidationRuleSet` (single rule or array)
+  - `defineValidation(name, check)` and `defineValidationSet(...rules)` helpers
+  - `normalizeRules(set)` for internal use
+  - Four common validators: `pathAllowed({ baseDir })`, `commandDenylist([...cmds])`, `maxFieldSize({ field, maxBytes })`, `noShellMetacharacters({ field })`
+  - Agent loop integration: `validate?` rules run after schema validation and before `execute()`. First failure short-circuits with that error message.
+- **`requireApproval?: boolean`** on `ToolDefinition` — flag for tools that need caller approval (production mutations, infra deploys, untrusted code execution). Integration with the caller is left to the embedder (CLI prompt, server 202 response, etc.).
+- **Public API exports** for the validation framework (`defineValidation`, `defineValidationSet`, `normalizeRules`, `pathAllowed`, `commandDenylist`, `maxFieldSize`, `noShellMetacharacters` + types).
+- **Examples**:
+  - `07-streaming` — `agent.streamRun()` end-to-end with a real Anthropic key (or a fake provider that yields word-by-word)
+  - `08-validation` — sandboxed Write tool with `pathAllowed()` showing the validation gate in action
+  - `09-otel-sdk` — real OpenTelemetry SDK pipeline (commented-out bootstrap code, working OtelTracerAdapter + EventTracer wiring)
+
+### Changed
+
+- `Provider.stream?` is no longer optional in practice — the three shipped providers all implement it. Custom providers that only implement `chat()` still work via the `streamRun()` fallback.
+
+### Performance
+
+- Bundle: 51KB → 53KB (streaming adds ~1KB to each provider; validation module is ~2KB).
+- Total tests: 120 → 155 (35 new tests across streaming + validation).
+
+### Deferred to v0.6.0
+
+- MCP (Model Context Protocol) adapter — both client (consume MCP servers as Husk tools) and server (expose Husk tools as MCP)
+- Real SQLite / Chroma vector store backends (v0.5.0 has the `VectorStore` interface; v0.6.0 fills in concrete impls)
+- Tool approval flow end-to-end (caller-side hook for `requireApproval` — CLI prompt, server 202, etc.)
+- More init templates (with-tests, ESM-only, monorepo-aware)
+- Gemini provider (low priority; Ollama covers OpenAI-compatible)
+
 ## [0.4.1] — 2026-06-13
 
 ### Added
