@@ -121,7 +121,6 @@ function mapKind(kind: SpanKind | undefined): 0 | 1 | 2 {
       return 2;
     case 'server':
       return 1;
-    case 'internal':
     default:
       return 0;
   }
