@@ -59,22 +59,32 @@ let sdkCache: SdkServerCache | undefined;
 
 async function loadServerSdk(): Promise<SdkServerCache> {
   if (sdkCache) return sdkCache;
-  try {
-    const mod = (await import('@modelcontextprotocol/sdk/server/index.js')) as Record<
-      string,
-      unknown
-    >;
-    sdkCache = { McpServer: mod.Server as unknown as SdkServerCache['McpServer'] };
-    return sdkCache;
-  } catch (err) {
-    if (err instanceof Error && /Cannot find module/.test(err.message)) {
-      throw new McpClientError(
-        "The MCP SDK isn't installed. Run `npm install @modelcontextprotocol/sdk` and try again. The SDK is an optional peer dep — Husk doesn't force it on you unless you use the /mcp subpath.",
-        'SDK_MISSING',
-      );
+  // Try the high-level McpServer from server/mcp.js first, then
+  // fall back to the deprecated low-level Server from server/index.js
+  // (which also has registerTool in recent SDK versions but on a
+  // different object). Finally fall back to the root entry.
+  const importPaths = [
+    '@modelcontextprotocol/sdk/server/mcp.js',
+    '@modelcontextprotocol/sdk/server/index.js',
+    '@modelcontextprotocol/sdk/index.js',
+  ];
+  for (const path of importPaths) {
+    try {
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any, @typescript-eslint/consistent-type-assertions
+      const mod = (await import(path)) as { McpServer?: unknown; Server?: unknown };
+      const ctor = mod.McpServer ?? mod.Server;
+      if (ctor) {
+        sdkCache = { McpServer: ctor as SdkServerCache['McpServer'] };
+        return sdkCache;
+      }
+    } catch {
+      // Try the next path
     }
-    throw err;
   }
+  throw new McpClientError(
+    "The MCP SDK isn't installed. Run `npm install @modelcontextprotocol/sdk` and try again. The SDK is an optional peer dep — Husk doesn't force it on you unless you use the /mcp subpath.",
+    'SDK_MISSING',
+  );
 }
 
 /**
