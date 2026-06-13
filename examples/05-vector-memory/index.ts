@@ -101,7 +101,7 @@ const r2 = await agent.run(
 console.log(`Output: ${r2.output}`);
 console.log(`Iterations: ${r2.iterations}`);
 
-console.log(`\n=== Final memory state ===`);
+console.log('\n=== Final memory state ===');
 console.log(`Total memories: ${await store.count()}`);
 for (const id of await store.list()) {
   const results = await store.search(await embedder.embed(id), 1);
