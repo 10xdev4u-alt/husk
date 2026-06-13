@@ -56,6 +56,19 @@ export interface InitOptions {
    *  - 'prompt': ask the user interactively (TTY-only)
    */
   force?: boolean | 'prompt';
+  /**
+   * Auto-initialize a git repo in the target dir and create an
+   * initial commit. Defaults to false. Uses the system 'git' binary;
+   * if git is not on PATH, runGitInit() returns a non-zero exit
+   * code and the caller can decide whether to surface that.
+   */
+  git?: boolean;
+  /**
+   * Override the committer identity for the initial git commit.
+   * Format: "Name <email>". Falls back to whatever the user's
+   * global git config is set to (git will use that out of the box).
+   */
+  gitAuthor?: string;
 }
 
 /** Result of running init — useful for tests and for the CLI to print a summary. */
@@ -72,6 +85,8 @@ export interface InitResult {
   packageManager: PackageManager;
   /** Exit code from the install step. 0 = success, undefined = not run. */
   installExitCode: number | undefined;
+  /** Exit code from the git init step. 0 = success, undefined = not run. */
+  gitExitCode: number | undefined;
 }
 
 /**
@@ -197,6 +212,56 @@ export function runInstall(
   return result.status ?? 1;
 }
 
+/**
+ * Initialize a git repo in the target dir and create an initial
+ * commit. Steps: `git init` (only if not already a repo) → `git add .`
+ * → `git commit -m 'chore: scaffold husky agent'`.
+ *
+ * Returns the exit code of the final `git commit` (0 = success).
+ * All commands run in `targetDir` with stdio piped (we don't want
+ * git's chatter to mix with init's output).
+ *
+ * `HUSK_INIT_SKIP_GIT=1` short-circuits the spawn (used by tests
+ * and by `--no-git` flags upstream).
+ */
+export function runGitInit(
+  targetDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+  options: { author?: string } = {},
+): number {
+  if (env.HUSK_INIT_SKIP_GIT === '1') return 0;
+  const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
+  const spawn = (args: string[]) => {
+    const [cmd, ...rest] = args;
+    if (!cmd) return { status: 1 };
+    return spawnSync(cmd, rest, {
+      cwd: targetDir,
+      stdio: 'pipe',
+      env,
+    });
+  };
+
+  // 1. git init (only if not already a repo — `--initial-branch=main`
+  //    matches GitHub's default branch; older gits don't have the flag
+  //    so we fall back to a plain init).
+  const initResult = spawn(['git', 'init', '--initial-branch=main']);
+  if ((initResult.status ?? 1) !== 0) {
+    spawn(['git', 'init']);
+  }
+
+  // 2. git add . (the .gitignore takes care of node_modules etc.)
+  const addResult = spawn(['git', 'add', '.']);
+  if ((addResult.status ?? 1) !== 0) return addResult.status ?? 1;
+
+  // 3. git commit. Apply the optional author override if provided.
+  const commitArgs = ['git', 'commit', '-m', 'chore: scaffold husky agent'];
+  if (options.author) {
+    commitArgs.push('--author', options.author);
+  }
+  const commitResult = spawn(commitArgs);
+  return commitResult.status ?? 1;
+}
+
 /** Entry point for the `husk init` command. */
 export async function initCommand(options: InitOptions): Promise<InitResult> {
   const provider = options.provider ?? 'anthropic';
@@ -252,7 +317,20 @@ export async function initCommand(options: InitOptions): Promise<InitResult> {
   const pm = options.packageManager ?? detectPackageManager(projectDir);
   const installExitCode = options.install ? runInstall(projectDir, pm) : undefined;
 
-  return { projectDir, files, provider, template, packageManager: pm, installExitCode };
+  // Optional git init step. Skipped unless the caller opted in.
+  const gitExitCode = options.git
+    ? runGitInit(projectDir, undefined, options.gitAuthor ? { author: options.gitAuthor } : {})
+    : undefined;
+
+  return {
+    projectDir,
+    files,
+    provider,
+    template,
+    packageManager: pm,
+    installExitCode,
+    gitExitCode,
+  };
 }
 
 // ----- Templates (inline so they ship with the bundle) -----
