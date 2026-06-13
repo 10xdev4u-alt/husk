@@ -4,6 +4,58 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.1] — 2026-06-13
+
+### Added
+
+- **`husk init` v2** (existing command, many new flags):
+  - `--install` — auto-run the detected package manager's install command after writing files. Default: off (opt-in so AI agents and CI don't hang on a 60-second install they didn't ask for).
+  - `--git` — auto-initialize a git repo and create an initial commit (`chore: scaffold husky agent`). Uses `git init --initial-branch=main` (with a `git init` fallback for older gits), then `git add .`, then `git commit`. The `.gitignore` we write keeps `node_modules` and `dist` out of the commit.
+  - `--git-author "Name <email>"` — override the committer identity for the initial commit.
+  - `--package-manager npm|pnpm|bun|yarn` — override the auto-detected package manager.
+  - `--force` — overwrite existing files in the target dir. Default: throw `InitError` (silent overwrites are the wrong default for a scaffolder).
+  - `--no-interactive` — skip all prompts even in a TTY. Default: off in TTY (we ask for missing options), on in non-TTY (CI / scripted use gets deterministic defaults).
+  - `force: 'prompt'` (library option) — ask the user before overwriting. Falls back to throwing in non-TTY contexts.
+  - **Interactive prompts** for provider + template when those flags are missing and the invocation is in a TTY. Defaults shown in brackets (`[anthropic]`), choices shown in parens (`(anthropic/openai)`), invalid input re-prompts once.
+  - **Package manager detection** — picks npm / pnpm / bun / yarn from `npm_config_user_agent` (priority) → lockfile in the target dir (pnpm-lock.yaml, bun.lock, bun.lockb, yarn.lock) → default to npm.
+- **Public API additions** to the init module:
+  - `isEmptyDir(dir)` / `isExistingProject(dir)` — async helpers used by the overwrite gate
+  - `detectPackageManager(targetDir, env?)` — pure function with injectable env for tests
+  - `getInstallCommand(pm)` — returns the argv for a given package manager
+  - `runInstall(targetDir, pm, env?)` — spawnSync wrapper, returns exit code
+  - `runGitInit(targetDir, env?, opts?)` — spawnSync wrapper for the three git steps
+  - `prompt(question, options?)` — readline-based prompt with TTY detection
+  - `InitError` — thrown when the overwrite gate trips; carries the projectDir
+  - `PromptError` — thrown when `prompt()` is called from a non-TTY context
+  - `PackageManager` type — `'npm' | 'pnpm' | 'bun' | 'yarn'`
+- **InitResult grows**: `packageManager`, `installExitCode`, `gitExitCode` fields.
+- **InitOptions grows**: `install`, `git`, `gitAuthor`, `packageManager`, `force` (now `boolean | 'prompt'`), `noInteractive`.
+- **Test env vars** for short-circuiting auto-steps: `HUSK_INIT_SKIP_INSTALL=1`, `HUSK_INIT_SKIP_GIT=1`, `HUSK_INIT_NON_INTERACTIVE=1`.
+
+### Changed
+
+- Default overwrite behavior: `husk init` now **throws** if the target dir is non-empty (previously: silently overwrote). Use `--force` to restore the old behavior, or `--no-interactive` in CI.
+- Post-init summary now reports `install` and `git` exit codes (when those steps ran) so the user sees at a glance whether the auto-steps succeeded.
+- The `package.json` template now pins `@princetheprogrammerbtw/husk` at `^0.4.1`.
+
+### Performance
+
+- Bundle: 49KB → 51KB (init module grew by ~2KB; the bulk is the readline-based prompt helper and the runInstall/runGitInit spawnSync wrappers).
+- Total tests: 87 → 120 (32 new init-v2 tests cover helpers, detection, force, install, git, prompt).
+
+### Fixed
+
+- CI publish auth (`7f27492`): previous workflow relied on `bunx npm publish` picking up the `NPM_TOKEN` env var, which doesn't always propagate. The new flow writes the token to `~/.npmrc` explicitly before publishing. v0.4.0 was published manually with this fix already in place; future tag pushes will auto-publish on the first try.
+
+### Deferred to v0.5.0
+
+- Tool validation framework (declarative safety rules per tool)
+- Streaming responses (Anthropic + OpenAI both support streaming; our Tracer has streaming events)
+- Real @opentelemetry/sdk-node integration example
+- Vector store backends beyond in-memory (sqlite-vec, chroma)
+- MCP (Model Context Protocol) adapter
+- More init templates (with-tests, ESM-only, monorepo-aware)
+
 ## [0.4.0] — 2026-06-13
 
 ### Added
