@@ -54,6 +54,7 @@ export { InMemoryStore, FileStore, type FileStoreOptions } from './core/memory.j
 // Vector memory
 export {
   InMemoryVectorStore,
+  SqliteVectorStore,
   HashEmbedder,
   cosineSimilarity,
   defineMemorySearchTool,
@@ -64,6 +65,8 @@ export {
   type EmbeddingProvider,
   type HashEmbedderOptions,
   type MemoryToolOptions,
+  type SqliteVectorStoreOptions,
+  type SqliteVectorStoreHandle,
 } from './memory/vector-index.js';
 
 // Steering helpers

@@ -23,3 +23,9 @@ export {
   type MemoryToolOptions,
   type EmbeddingProvider,
 } from './vector.js';
+
+export {
+  SqliteVectorStore,
+  type SqliteVectorStoreOptions,
+  type SqliteVectorStoreHandle,
+} from './vector-sqlite.js';
