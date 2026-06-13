@@ -132,18 +132,33 @@ const agent = new Agent({
 husk run "What is the capital of France?"
 husk run "Refactor src/foo.ts" --tools read,edit,write
 husk run "Summarize README.md" --provider openai --model gpt-5
-husk run --help
+
+# Run eval suites from the terminal (CI integration)
+husk eval ./evals/geography.ts
+husk eval ./evals/                  # all .ts/.js/.mjs in the dir
+
+# Scaffold a new Husk project
+husk init my-agent
+husk init my-agent --provider openai
+husk init my-agent --template full
+
+# Help
+husk --help
+husk init --help
 ```
 
 The CLI wraps the same `Agent` class — flags map directly to `AgentConfig` fields.
 
 ## Examples
 
-Three worked examples in the [`examples/`](./examples) directory:
+Six worked examples in the [`examples/`](./examples) directory:
 
 - **[01-hello-agent](./examples/01-hello-agent)** — minimal agent, no tools
 - **[02-code-reviewer](./examples/02-code-reviewer)** — full tool set + steering for code review
 - **[03-multi-agent](./examples/03-multi-agent)** — three agents composed in sequence (planner → coder → reviewer)
+- **[04-evals](./examples/04-evals)** — assertion-based eval suite you can run with `husk eval`
+- **[05-vector-memory](./examples/05-vector-memory)** — long-term memory via semantic recall across sessions
+- **[06-husk-init](./examples/06-husk-init)** — programmatic demo of the `husk init` scaffolder
 
 Run any example with `bun run examples/0X-name/index.ts`.
 
