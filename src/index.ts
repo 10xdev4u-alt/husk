@@ -107,3 +107,14 @@ export {
   type AgentFactory,
   type RunSuiteOptions,
 } from './evals/index.js';
+
+// Observability
+export {
+  NoopTracer,
+  EventTracer,
+  type Tracer,
+  type Span,
+  type SpanContext,
+  type SpanKind,
+  type SpanOptions,
+} from './obs/index.js';
