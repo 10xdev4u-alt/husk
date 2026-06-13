@@ -11,7 +11,7 @@ import { existsSync } from 'node:fs';
 import { mkdir, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
-import { InitError, type InitResult, initCommand } from '../src/cli/init.js';
+import { InitError, type InitResult, type PackageManager, initCommand } from '../src/cli/init.js';
 
 let workDir: string;
 
