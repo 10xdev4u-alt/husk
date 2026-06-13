@@ -21,6 +21,7 @@
 
 import OpenAI from 'openai';
 import type {
+  ChatChunk,
   ChatRequest,
   ChatResponse,
   ContentBlock,
@@ -90,6 +91,103 @@ export class OpenAIProvider implements Provider {
       },
       stopReason: mapStopReason(choice.finish_reason),
       model: response.model,
+    };
+  }
+
+  /**
+   * Stream the model response as a sequence of ChatChunks. Maps
+   * OpenAI's per-chunk Server-Sent Events to the provider-agnostic
+   * ChatChunk shape.
+   *
+   * Each OpenAI chunk may carry:
+   *   - delta.content         → 'text' chunk
+   *   - delta.tool_calls[]    → 'tool_use_start' (first delta for a given index)
+   *                            or 'tool_use_delta' (subsequent argument deltas)
+   *   - finish_reason         → 'message_end' with stopReason
+   *   - usage (if stream_options.include_usage is set)
+   *                           → attached to the final 'message_end'
+   *
+   * We track which tool_call indices we've already emitted a
+   * 'tool_use_start' for, so we don't repeat it on argument deltas.
+   */
+  async *stream(request: ChatRequest): AsyncIterable<ChatChunk> {
+    const { system, messages } = splitSystemMessage(request.messages);
+    const openaiTools = request.tools?.map(toOpenAITool);
+
+    const stream = await this.client.chat.completions.create({
+      model: request.model || this.model,
+      ...(system
+        ? {
+            messages: [
+              { role: 'system' as const, content: system },
+              ...messages.flatMap((m) => toOpenAIMessages(m)),
+            ],
+          }
+        : { messages: messages.flatMap((m) => toOpenAIMessages(m)) }),
+      ...(openaiTools && openaiTools.length > 0 ? { tools: openaiTools } : {}),
+      ...(request.temperature !== undefined ? { temperature: request.temperature } : {}),
+      ...(request.maxTokens ? { max_tokens: request.maxTokens } : {}),
+      ...(request.stopSequences ? { stop: [...request.stopSequences] } : {}),
+      stream: true,
+      stream_options: { include_usage: true },
+    });
+
+    // Track which tool_call indices we've seen a 'start' for.
+    const seenToolCallIndex = new Set<number>();
+    let finalUsage: { inputTokens: number; outputTokens: number } | undefined;
+    let finalStopReason: StopReason = 'end_turn';
+
+    for await (const chunk of stream) {
+      const choice = chunk.choices[0];
+      // Usage-only chunk (sent after the final choice).
+      if (chunk.usage) {
+        finalUsage = {
+          inputTokens: chunk.usage.prompt_tokens,
+          outputTokens: chunk.usage.completion_tokens,
+        };
+        continue;
+      }
+      if (!choice) continue;
+
+      const delta = choice.delta;
+
+      if (delta.content) {
+        yield { type: 'text', text: delta.content };
+      }
+
+      if (delta.tool_calls) {
+        for (const tc of delta.tool_calls) {
+          if (!seenToolCallIndex.has(tc.index)) {
+            seenToolCallIndex.add(tc.index);
+            if (tc.id && tc.function?.name) {
+              yield {
+                type: 'tool_use_start',
+                toolUse: { id: tc.id, name: tc.function.name },
+              };
+            }
+          }
+          if (tc.function?.arguments) {
+            yield {
+              type: 'tool_use_delta',
+              toolUse: {
+                id: tc.id ?? '',
+                name: tc.function.name ?? '',
+                inputDelta: tc.function.arguments,
+              },
+            };
+          }
+        }
+      }
+
+      if (choice.finish_reason) {
+        finalStopReason = mapStopReason(choice.finish_reason);
+      }
+    }
+
+    yield {
+      type: 'message_end',
+      stopReason: finalStopReason,
+      ...(finalUsage ? { usage: finalUsage } : {}),
     };
   }
 }
