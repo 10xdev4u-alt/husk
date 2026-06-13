@@ -155,6 +155,9 @@ husk eval ./evals/                  # all .ts/.js/.mjs in the dir
 husk init my-agent
 husk init my-agent --provider openai
 husk init my-agent --template full
+husk init my-agent --git --install     # git init + npm install in one go
+husk init my-agent --force             # overwrite an existing dir
+husk init my-agent --no-interactive    # skip prompts (CI / scripted use)
 
 # Help
 husk --help
