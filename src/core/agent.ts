@@ -500,6 +500,28 @@ export class Agent {
       };
     }
 
+    // Run the tool's custom validation rules (if any) before
+    // executing. Rules can be a single ValidationRule or an array.
+    if (tool.validate) {
+      const { normalizeRules } = await import('../tools/validation.js');
+      const rules = normalizeRules(tool.validate);
+      const ctx = {
+        toolName: name,
+        cwd: process.cwd(),
+        input,
+        env: process.env,
+      };
+      for (const rule of rules) {
+        const error = rule.check(input, ctx);
+        if (error !== null) {
+          return {
+            output: `Error: tool '${name}' blocked by validation rule '${rule.name}': ${error}`,
+            isError: true,
+          };
+        }
+      }
+    }
+
     try {
       return await tool.execute(input, { signal: this.signal, logger: this.logger });
     } catch (err) {
