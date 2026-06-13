@@ -11,11 +11,7 @@
  */
 
 import { describe, expect, test } from 'bun:test';
-import {
-  AnthropicProvider,
-  OllamaProvider,
-  OpenAIProvider,
-} from '../src/index.js';
+import { AnthropicProvider, OllamaProvider, OpenAIProvider } from '../src/index.js';
 
 describe('AnthropicProvider', () => {
   test('has correct identity', () => {
@@ -38,13 +34,13 @@ describe('AnthropicProvider', () => {
 
 describe('OpenAIProvider', () => {
   test('has correct identity', () => {
-    const p = new OpenAIProvider();
+    const p = new OpenAIProvider({ apiKey: 'sk-test' });
     expect(p.name).toBe('openai');
     expect(p.model).toBe('gpt-5');
   });
 
   test('respects model override', () => {
-    const p = new OpenAIProvider({ model: 'gpt-5-mini' });
+    const p = new OpenAIProvider({ apiKey: 'sk-test', model: 'gpt-5-mini' });
     expect(p.model).toBe('gpt-5-mini');
   });
 });
@@ -62,9 +58,7 @@ describe('OllamaProvider', () => {
   });
 
   test('respects baseURL override', () => {
-    expect(
-      () => new OllamaProvider({ baseURL: 'http://gpu-server.local:11434/v1' }),
-    ).not.toThrow();
+    expect(() => new OllamaProvider({ baseURL: 'http://gpu-server.local:11434/v1' })).not.toThrow();
   });
 
   test('implements the Provider interface', () => {
