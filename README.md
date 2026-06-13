@@ -174,20 +174,27 @@ Run any example with `bun run examples/0X-name/index.ts`.
 ```
 src/
 ├── core/          # agent loop, types, events, memory, steering
-├── providers/     # anthropic, openai (more coming)
-├── tools/         # registry helpers + 5 built-ins
-├── cli/           # the husk command
+├── providers/     # anthropic, openai, ollama
+├── tools/         # registry helpers + 5 built-ins (read/write/edit/bash/grep)
+├── memory/        # vector memory (InMemoryVectorStore, HashEmbedder, tool factories)
+├── evals/         # assertion DSL + runSuite
+├── obs/           # Tracer interface + EventTracer
+├── otel/          # optional @opentelemetry/api bridge (subpath: /otel)
+├── cli/           # the husk command (run, eval, init)
 └── index.ts       # public API surface
 ```
 
 Every piece composes through a **typed event stream**. The agent loop is ~150 lines. Provider adapters are the only files that know about provider-specific wire formats. Tools are plain objects implementing a 4-field interface — register by passing an array to the Agent.
 
+The `cli/` directory is the only place that touches `process.argv` or the filesystem outside the workdir — the rest of the codebase is pure, testable, and embeddable in any host (CLI, server, edge function, Electron app, etc.).
+
 ## Roadmap
 
 - **v0.1.0** ✅ Core loop, Anthropic + OpenAI, 5 built-in tools, memory, observability, CLI
 - **v0.1.1** ✅ CLI shebang fix, version bump
-- **v0.2.0** Eval runner, OTel export, Ollama adapter
-- **v0.3.0** Vector memory, hosted dashboard
+- **v0.2.0** ✅ Ollama adapter, eval runner with assertion DSL, Tracer + EventTracer
+- **v0.3.0** ✅ Vector memory, OTel adapter (subpath), `husk eval` CLI
+- **v0.4.0** 🚧 `husk init` project scaffolder, more examples, public API exports
 - **v1.0.0** Stable API, marketplace, enterprise features
 
 ## Contributing
