@@ -53,11 +53,37 @@ export interface SearchResult {
   readonly metadata?: Readonly<Record<string, unknown>>;
 }
 
+/**
+ * Metadata filter for vector searches. Matches a stored item's
+ * `metadata` field against the provided clauses. The matching
+ * is exact-equality by default; v0.8.0 ships `eq` and `in` only.
+ *
+ * Examples:
+ *   { source: 'email' }                         // source === 'email'
+ *   { source: 'email', priority: 'high' }      // source === 'email' AND priority === 'high'
+ *   { source: { $in: ['email', 'slack'] } }    // source in ['email', 'slack']
+ *   { tags: { $contains: 'urgent' } }          // tags array contains 'urgent'
+ *
+ * Backends translate this into their native filter language
+ * (sqlite-vec: WHERE clauses on auxiliary columns; in-memory:
+ * straight object comparison; cloud: provider-specific filters).
+ */
+export type VectorFilter = Readonly<Record<string, unknown>>;
+
 export interface VectorStore {
   /** Add or update a memory item. */
   upsert(item: MemoryItem): Promise<void>;
-  /** Search for the top-K most similar items to the query embedding. */
-  search(queryEmbedding: readonly number[], topK: number): Promise<readonly SearchResult[]>;
+  /**
+   * Search for the top-K most similar items to the query embedding,
+   * optionally filtered by metadata. v0.8.0 adds the optional
+   * `filter` parameter; backends that don't support filtering
+   * simply ignore it (return all matches).
+   */
+  search(
+    queryEmbedding: readonly number[],
+    topK: number,
+    options?: { readonly filter?: VectorFilter },
+  ): Promise<readonly SearchResult[]>;
   /** Remove a memory by id. No-op if not present. */
   remove(id: string): Promise<void>;
   /** List all memory ids (for debugging/inspection). */
