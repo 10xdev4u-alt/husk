@@ -23,10 +23,18 @@
   },
   "files": ["dist", "README.md", "LICENSE"],
   "peerDependencies": {
-    "@modelcontextprotocol/sdk": "^1.29.0"
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "better-sqlite3": "^12.0.0",
+    "sqlite-vec": "^0.1.9"
   },
   "peerDependenciesMeta": {
     "@modelcontextprotocol/sdk": {
+      "optional": true
+    },
+    "better-sqlite3": {
+      "optional": true
+    },
+    "sqlite-vec": {
       "optional": true
     }
   },
@@ -72,6 +80,9 @@
     "@modelcontextprotocol/sdk": "^1.29.0",
     "@opentelemetry/api": "^1.9.1",
     "@types/node": "^22.10.0",
+    "better-sqlite3": "^12.10.0",
+    "json-schema-to-zod": "^2.8.1",
+    "sqlite-vec": "^0.1.9",
     "tsup": "^8.3.5",
     "typescript": "^5.7.2"
   },
