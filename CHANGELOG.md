@@ -4,6 +4,50 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.4.0] — 2026-06-13
+
+### Added
+
+- **`husk init` CLI subcommand**: `husk init <dir>` scaffolds a new Husk project
+  with sensible defaults. Flags: `--provider anthropic|openai`, `--template
+  minimal|full`, `--skip-install`. Writes `package.json`, `tsconfig.json`,
+  `.gitignore`, `.env.example`, `src/hello-agent.ts`, and a project README.
+  The `full` template additionally writes `src/code-reviewer.ts`. Exit code 0
+  on success, 2 on usage error. Programmatic equivalent (`initCommand()` +
+  `InitOptions`/`InitResult`) is exported from the main entry so users can
+  build their own scaffolders on top.
+- **Example 06 — `husk init` programmatic demo**: runs the same init logic
+  the CLI uses, but in-process via a tmp dir. Shows the returned `InitResult`
+  and a couple of the generated files for inspection.
+- **Public API exports**: `initCommand`, `InitOptions`, `InitResult`,
+  `InitProvider`, `InitTemplate` are now re-exported from the main entry
+  (`@princetheprogrammerbtw/husk`).
+
+### Changed
+
+- README Quickstart now leads with the `npx @princetheprogrammerbtw/husk init`
+  workflow as the path of least resistance for new users. The inline-build
+  path stays right below for users who already have a project.
+- CLI help text (`husk --help`) now documents the `init` subcommand and its
+  three flags. `husk init --help` shows init-specific usage.
+
+### Performance
+
+- Bundle: 48KB → 49KB (init module is ~7KB of template strings; mostly
+  re-exported types in the d.ts).
+- Total tests: 72 → 87 (15 new init tests cover defaults, flags, paths,
+  and the return-value contract).
+
+### Deferred to v0.5.0
+
+- Tool validation framework (declarative safety rules per tool)
+- Streaming responses (Anthropic + OpenAI both support streaming; our
+  Tracer already has streaming events; just need a streaming Provider
+  interface)
+- Real @opentelemetry/sdk-node integration example
+- Vector store backends beyond in-memory (sqlite-vec, chroma)
+- MCP (Model Context Protocol) adapter
+
 ## [0.3.0] — 2026-06-13
 
 ### Added
