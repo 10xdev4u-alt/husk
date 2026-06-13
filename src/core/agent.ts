@@ -70,6 +70,7 @@ export class Agent {
   readonly sessionId: string;
   readonly memory: AgentConfig['memory'];
   readonly logger: Logger;
+  readonly onApprovalRequest: AgentConfig['onApprovalRequest'];
 
   constructor(config: AgentConfig) {
     this.events = new AgentEventEmitter();
@@ -83,6 +84,7 @@ export class Agent {
     this.sessionId = config.sessionId ?? DEFAULTS.sessionId;
     this.memory = config.memory;
     this.logger = new ConsoleLogger();
+    this.onApprovalRequest = config.onApprovalRequest;
   }
 
   /**
@@ -519,6 +521,26 @@ export class Agent {
             isError: true,
           };
         }
+      }
+    }
+
+    // Approval gate. If the tool requires approval and the caller
+    // didn't wire onApprovalRequest, block by default — the safe
+    // choice. If they did wire it, the callback decides.
+    if (tool.requireApproval) {
+      if (!this.onApprovalRequest) {
+        return {
+          output: `Error: tool '${name}' requires approval, but no onApprovalRequest callback is configured on the Agent. Either set requireApproval: false on the tool, or wire onApprovalRequest in AgentConfig.`,
+          isError: true,
+        };
+      }
+      const reason = `${name} wants to run with: ${JSON.stringify(input).slice(0, 200)}`;
+      const result = await this.onApprovalRequest({ toolName: name, input, reason });
+      if (!result.approved) {
+        return {
+          output: `Error: tool '${name}' was not approved. ${result.reason ?? 'User denied the request.'}`,
+          isError: true,
+        };
       }
     }
 
