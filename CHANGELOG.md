@@ -4,6 +4,33 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.8.0] — 2026-06-13
+
+### Added
+
+- **Metadata filtering on vector stores** — `search(queryEmbedding, topK, { filter })` now accepts a `VectorFilter` for narrowing results by metadata. Both `InMemoryVectorStore` and `SqliteVectorStore` implement it. The canonical matcher (`matchesFilter()`) supports:
+  - exact value (string/number/boolean) — strict equality
+  - `{ $in: [...] }` — MongoDB-style: scalar matches if in list, array matches if any intersection
+  - `{ $contains: 'x' }` — array contains value, or string contains substring
+  - `{ $exists: true }` — key present (or absent, with false)
+  - Multiple clauses are ANDed
+- **`GeminiProvider`** — wire Husk to Google's Gemini models via the new `@google/genai` SDK (the legacy `@google/generative-ai` is deprecated and EOL as of Aug 2025). Chat + streaming. Function calling round-trips through Gemini's `functionCall` / `functionResponse` parts. Default model: `gemini-2.5-flash`. API key from `GEMINI_API_KEY` or `GOOGLE_API_KEY` env var.
+
+### Stats
+
+- 6 new commits (vector filter × 3, Gemini × 2, test × 1)
+- 19 new tests (17 vector filter + 8 Gemini, some shared with the in-memory test that already had filter coverage)
+- Bundle: 60KB → 60KB (Gemini is a thin adapter; vector filter is a pure addition to the interface)
+
+### Deferred to v0.9.0
+
+- **Real `@opentelemetry/sdk-node` example upgrade** — `09-otel-sdk` shows the bootstrap but uses the bare `api` package
+- **More init templates** (`with-tests`, `ESM-only`, `monorepo-aware`)
+- **Gemini baseURL support** — the constructor accepts `baseURL` but it's not yet wired through the GenAI SDK's `httpOptions`
+- **Auto-retry on transient errors** — exponential backoff on 5xx, rate limits, network errors
+- **Context window management** — auto-compact when approaching the model's token limit
+- **CLI REPL mode** — `husk run --repl` for interactive multi-turn sessions
+
 ## [0.7.0] — 2026-06-13
 
 ### Added

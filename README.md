@@ -184,6 +184,7 @@ Six worked examples in the [`examples/`](./examples) directory:
 - **[11-approval](./examples/11-approval)** — `requireApproval` + `onApprovalRequest` callback for safe tool execution
 - **[12-mcp-server](./examples/12-mcp-server)** — expose Husk tools as an MCP server for Claude Desktop
 - **[13-vector-store-sqlite](./examples/13-vector-store-sqlite)** — persistent vector memory with `SqliteVectorStore`
+- (v0.8.0) **Gemini provider** — wire Husk to Google's Gemini models via the new `@google/genai` SDK
 
 Run any example with `bun run examples/0X-name/index.ts`.
 
