@@ -108,6 +108,36 @@ export interface ToolResult {
 }
 
 /**
+ * A request for user approval before executing a tool. The agent
+ * loop surfaces this to the caller (via onApprovalRequest) and
+ * only proceeds if the caller resolves to true.
+ *
+ * The 'reason' field is a short human-readable string suitable
+ * for a CLI prompt or notification (e.g. 'Bash wants to run
+ * rm -rf /tmp/foo'). The caller can also inspect the full input
+ * via the 'input' field for richer UIs.
+ */
+export interface ApprovalRequest {
+  /** Name of the tool that wants to run. */
+  readonly toolName: string;
+  /** The input the tool was called with. */
+  readonly input: unknown;
+  /** Short description of the pending operation, suitable for a prompt. */
+  readonly reason: string;
+}
+
+/**
+ * Result of an approval request. The agent loop checks the .approved
+ * field; if false, the tool is not executed and the model sees an
+ * error message explaining the user denied the call.
+ */
+export interface ApprovalResult {
+  readonly approved: boolean;
+  /** Optional reason the caller can pass back to the model. */
+  readonly reason?: string;
+}
+
+/**
  * A tool the agent can invoke. Providers translate this to their
  * native tool format (Anthropic's `tools` array, OpenAI's
  * `functions` array, etc.).
@@ -283,6 +313,21 @@ export interface AgentConfig {
   readonly signal?: AbortSignal;
   /** Session ID for memory continuity. Default: 'default'. */
   readonly sessionId?: string;
+  /**
+   * Optional callback for tool approval requests. Invoked when a
+   * tool with `requireApproval: true` is about to execute. Return
+   * `{ approved: true }` to proceed or `{ approved: false }` to
+   * skip execution (the model sees an error explaining the denial).
+   *
+   * If unset, requireApproval tools are blocked by default — the
+   * agent loop returns an error to the model instructing it to
+   * surface a different approach. This is the safe default; users
+   * who want to allow requireApproval tools must wire the hook.
+   *
+   * The CLI ships a default readline-based implementation; see
+   * `husk run` and the `defaultCliApprovalPrompt` helper.
+   */
+  readonly onApprovalRequest?: (request: ApprovalRequest) => Promise<ApprovalResult>;
 }
 
 export interface AgentResult {
