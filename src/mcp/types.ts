@@ -61,3 +61,42 @@ export interface McpToolResult {
 
 /** Strongly-typed input shape for an MCP-wrapped Husk tool. */
 export type McpToolInput = Record<string, unknown>;
+
+/**
+ * Configuration for `defineMcpServer()`. Wraps a Husk tool set
+ * as an MCP server so any MCP-compatible client (Claude Desktop,
+ * custom agents, etc.) can call those tools.
+ */
+export interface McpServerConfig {
+  /** Display name for the server. Sent to the client during handshake. */
+  readonly name: string;
+  /** Version string. Same usage as `name`. */
+  readonly version: string;
+  /** Husk tools to expose. */
+  readonly tools: readonly import('../core/types.js').ToolDefinition[];
+  /**
+   * If true, include tools that have `requireApproval: true`.
+   * Default: false (excluded). Exposing an approval-gated tool
+   * over MCP is a security hole — the MCP client has no way to
+   * surface the approval prompt. Override only if your MCP
+   * client handles approval natively.
+   */
+  readonly includeApprovalGated?: boolean;
+}
+
+/**
+ * The handle returned by `defineMcpServer()`. Wraps the
+ * underlying SDK server with a Husk-friendly surface.
+ */
+export interface McpServerHandle {
+  /**
+   * The raw SDK McpServer. Exposed for advanced cases (custom
+   * transports, programmatic inspection). Prefer `.connect()`
+   * for the common case.
+   */
+  readonly raw: unknown;
+  /** Connect the server to a transport (stdio, HTTP, etc.). */
+  connect(transport: unknown): Promise<void>;
+  /** Close the server. Idempotent. */
+  close(): Promise<void>;
+}

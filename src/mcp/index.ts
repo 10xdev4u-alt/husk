@@ -35,4 +35,13 @@ export type { McpClientErrorCode } from './client-error.js';
 export type { McpClientConfig, McpStdioConfig, McpHttpConfig } from './types.js';
 export { defineMcpTools } from './define-mcp-tools.js';
 export type { DefineMcpToolsOptions } from './define-mcp-tools.js';
+export { defineMcpServer } from './define-mcp-server.js';
+export type { McpServerConfig, McpServerHandle } from './types.js';
+export {
+  jsonSchemaToZod,
+  jsonSchemaToZodSync,
+  handRolledJsonSchemaToZod,
+  prewarmSchemaConverter,
+  type AnyZodSchema,
+} from './schema-adapter.js';
 export type { McpToolDefinition, McpToolInput, McpToolResult } from './types.js';
