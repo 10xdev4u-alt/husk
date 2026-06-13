@@ -4,6 +4,53 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.3.0] — 2026-06-13
+
+### Added
+
+- **Vector memory** (`src/memory/vector.ts`, `vector-inmemory.ts`, `embedder-hash.ts`):
+  long-term memory for agents via semantic recall. Three pieces —
+  `VectorStore` interface (pluggable: ship `InMemoryVectorStore` for v0.3.0,
+  users can write Chroma/Pinecone/sqlite-vec adapters), `EmbeddingProvider`
+  interface (ship `HashEmbedder` for offline use, users can plug in
+  OpenAI/Voyage/Cohere), and tool factories (`defineMemorySearchTool`,
+  `defineRememberTool`) that wrap a store + embedder as agent-callable
+  tools. The agent decides when to recall, no automatic injection.
+- **OTel adapter** (`src/otel/`): subpath import `@princetheprogrammerbtw/husk/otel`
+  that bridges Husk's minimal `Tracer` interface to the real
+  `@opentelemetry/api` `Tracer`. `@opentelemetry/api` is an *optional*
+  peer dependency — users who don't need OTel pay nothing.
+- **`husk eval` CLI subcommand**: `husk eval <file-or-dir>` runs eval
+  suites from the terminal for CI integration. Dynamic-imports user
+  files (works for .ts via `tsx`, .js/.mjs out of the box), looks for
+  exported `EvalSuite` objects, runs them, reports per-case results,
+  exits with code 0 (all passed) or 1 (any failed).
+- **Example 05 — vector memory**: two-session walkthrough demonstrating
+  the agent remembering a user preference across sessions.
+- **22 vector memory tests** + **vector example**.
+
+### Changed
+
+- `package.json` exports now includes `./otel` subpath.
+- tsup config builds three entries: `index`, `cli/index`, `otel/index`.
+- CI workflow: bumped `actions/checkout` from v4 to v5 (silences
+  the Node 20 deprecation warning we saw on every run since v0.1.0).
+- Total tests: 53 → 72 (a 1.4x increase).
+
+### Performance
+
+- Bundle: 45KB → 48KB (eval/obs grew slightly, otel is a separate
+  1.7KB chunk that doesn't bloat the main bundle).
+
+### Deferred to v0.4.0
+
+- Real @opentelemetry/sdk-node integration example
+- Vector store backends beyond in-memory (sqlite-vec, chroma)
+- `husk init` CLI subcommand for project scaffolding
+- MCP (Model Context Protocol) adapter
+- Streaming responses
+- Tool validation framework (declarative safety rules)
+
 ## [0.2.0] — 2026-06-13
 
 ### Added
