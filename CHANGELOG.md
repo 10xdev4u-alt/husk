@@ -4,6 +4,46 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.6.0] — 2026-06-13
+
+### Added
+
+- **MCP (Model Context Protocol) client adapter** in a new `/mcp` subpath:
+  - `McpClient` class — connects to any MCP-compatible server over stdio (spawn a child process and speak JSON-RPC) or HTTP (Streamable HTTP transport).
+  - `defineMcpTools(client, options?)` — fetches the server's tool list and wraps each tool as a Husk `ToolDefinition`. The result is a drop-in `tools` array for `new Agent({...})`.
+  - `McpClientError` with machine-readable `.code` (SDK_MISSING, NOT_CONNECTED, CALL_TOOLS_FAILED, etc.) so callers can branch without parsing messages.
+  - `@modelcontextprotocol/sdk` is an **optional** peer dep — users who never touch `/mcp` pay zero cost (the SDK is 4.2MB unpacked).
+  - Dynamic import of the SDK on first use so the main bundle stays small.
+  - Options: `namePrefix` (avoid collisions when combining multiple MCP servers), `validate` (local validation rules layered on top of MCP's own scope).
+- **Tool approval flow** (closes the v0.5.0 dangling thread):
+  - `ApprovalRequest` + `ApprovalResult` types in the public surface.
+  - `onApprovalRequest?: (request) => Promise<{ approved, reason? }>` callback on `AgentConfig`.
+  - Agent loop checks `requireApproval` on a tool AFTER validation rules but BEFORE `execute()`. No callback → blocked by default (safe). Callback approves → proceed. Callback denies → surface the denial as `isError: true` to the model.
+  - `defaultCliApprovalPrompt()` in `/cli` — readline-based Y/N prompt on stderr/stdin, TTY-aware (non-TTY auto-denies).
+  - `--no-approval` flag on `husk run` for batch scripts that know their tools are safe.
+- **Two new examples**:
+  - `10-mcp-filesystem` — connect to a real `@modelcontextprotocol/server-filesystem` subprocess, wrap its tools, layer `pathAllowed()` on top, use them in a Husk agent.
+  - `11-approval` — `requireApproval: true` + custom `onApprovalRequest` callback that approves safe commands and denies dangerous ones.
+
+### Changed
+
+- `Agent` now stores `onApprovalRequest` from `AgentConfig` so both `run()` and `streamRun()` share the same approval gate via the shared `executeTool()` path.
+- tsup config builds a new `mcp/index` entry; the SDK is external (not bundled in).
+
+### Performance
+
+- Bundle: 53KB → 57KB (MCP client is ~3KB; default CLI approval prompt is ~1KB; the SDK is external and not bundled).
+- Total tests: 155 → 177 (22 new tests: 16 for MCP, 6 for the approval flow).
+- `dist/mcp/index.d.ts` is ~7KB and ships its own type surface (no impact on the main entry's d.ts).
+
+### Deferred to v0.7.0
+
+- **MCP server adapter** (expose Husk tools as an MCP server so Claude Desktop and other MCP clients can use them) — the client side is the more common ask; the server side is a clean follow-up using the same `McpServer` class from the SDK.
+- **`SqliteVectorStore` backend** — v0.5.0 ships the `VectorStore` interface; v0.7.0 will add a `node:sqlite` (Node 22+) implementation. `better-sqlite3` is the fallback for Node 18-21.
+- **Gemini provider** — lower priority; Ollama covers the OpenAI-compatible case.
+- **More init templates** (`with-tests`, `ESM-only`, `monorepo-aware`).
+- **Real `@opentelemetry/sdk-node` example upgrade** — `09-otel-sdk` shows the bootstrap but the example file uses the bare `api` package; v0.7.0 will write a runnable version with `sdk-node` included.
+
 ## [0.5.0] — 2026-06-13
 
 ### Added
