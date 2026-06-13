@@ -86,6 +86,7 @@ async function runCommand(): Promise<void> {
       tools: { type: 'string' },
       memory: { type: 'string' },
       max: { type: 'string' },
+      stream: { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
     allowPositionals: true,
@@ -138,6 +139,36 @@ async function runCommand(): Promise<void> {
     memory,
     maxIterations,
   });
+
+  if (values.stream) {
+    // Streaming path. Text deltas go straight to stdout; tool calls
+    // and results are logged to stderr (so they don't pollute the
+    // streamed output if the user pipes it through grep / awk).
+    for await (const event of agent.streamRun(prompt)) {
+      if (event.type === 'text') {
+        process.stdout.write(event.text);
+      } else if (event.type === 'tool_call_start') {
+        // eslint-disable-next-line no-console
+        console.error(`\n[tool] ${event.name} (${event.id})`);
+      } else if (event.type === 'tool_result') {
+        const preview = event.result.output.slice(0, 80).replace(/\n/g, ' ');
+        // eslint-disable-next-line no-console
+        console.error(
+          `[tool-result] ${event.name}: ${preview}${event.result.output.length > 80 ? '...' : ''}`,
+        );
+      } else if (event.type === 'done') {
+        // eslint-disable-next-line no-console
+        console.error(
+          `\n[done] ${event.iterations} iteration(s), ${event.usage.inputTokens} in / ${event.usage.outputTokens} out tokens`,
+        );
+      } else if (event.type === 'error') {
+        // eslint-disable-next-line no-console
+        console.error(`\n[error] ${event.message}`);
+        process.exit(1);
+      }
+    }
+    process.exit(0);
+  }
 
   const result = await agent.run(prompt);
 
@@ -438,6 +469,7 @@ Run options:
                      (default: all five)
   --memory <kind>    'in-memory' (default) or 'file'
   --max <n>          Max agent iterations (default: 25)
+  --stream           Stream the response token-by-token (requires provider.stream())
   -h, --help         Show this help
   -v, --version      Show version
 
