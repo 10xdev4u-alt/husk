@@ -36,7 +36,14 @@ export function matchesFilter(
       if ('$in' in expected) {
         const list = expected.$in;
         if (!Array.isArray(list)) return false;
-        if (!Array.isArray(actual) || !list.some((v: unknown) => v === actual)) return false;
+        // MongoDB-style: match if the actual value (scalar) is in
+        // the list, OR if the actual is an array that has any
+        // intersection with the list.
+        if (Array.isArray(actual)) {
+          if (!list.some((v: unknown) => actual.includes(v as never))) return false;
+        } else {
+          if (!list.some((v: unknown) => v === actual)) return false;
+        }
       } else if ('$contains' in expected) {
         const needle = expected.$contains;
         if (Array.isArray(actual)) {

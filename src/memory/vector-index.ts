@@ -29,3 +29,6 @@ export {
   type SqliteVectorStoreOptions,
   type SqliteVectorStoreHandle,
 } from './vector-sqlite.js';
+
+export { matchesFilter } from './vector-filter.js';
+export type { VectorFilter } from './vector-filter.js';
