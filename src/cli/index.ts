@@ -300,7 +300,7 @@ async function initCliCommand(): Promise<void> {
       'git-author': { type: 'string' },
       'package-manager': { type: 'string' },
       force: { type: 'boolean' },
-      interactive: { type: 'boolean' },
+      'non-interactive': { type: 'boolean' },
       'skip-install': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -322,9 +322,8 @@ Options:
   --git-author "Name <e>"   Override committer identity for the initial commit
   --package-manager <name>  'npm' | 'pnpm' | 'bun' | 'yarn' (default: detected)
   --force                   Overwrite existing files in the target dir
-  --no-interactive          Skip all prompts (default in CI / non-TTY)
+  --non-interactive         Skip all prompts (default in CI / non-TTY)
   --skip-install            Alias for the absence of --install (placeholder)
-  -h, --help                Show this help
 
 Examples:
   husk init my-agent
@@ -332,7 +331,7 @@ Examples:
   husk init my-agent --template full
   husk init my-agent --git --install           # git + npm install in one go
   husk init my-agent --force                   # overwrite an existing dir
-  husk init my-agent --no-interactive          # CI / scripted use
+  husk init my-agent --non-interactive         # CI / scripted use
 `);
     return;
   }
@@ -363,15 +362,15 @@ Examples:
   // Install / skip-install are explicit opt-ins / opt-outs. --install
   // wins if both are passed (the user clearly meant "do it").
   const installFlag = values.install ? true : values['skip-install'] ? false : undefined;
-  // Force: true if --force, 'prompt' if --interactive and no --force,
-  // false otherwise. (No dedicated --prompt flag — the default in TTY
-  // is to ask, so the absence of --force is implicitly 'prompt'.)
+  // Force: true if --force, 'prompt' if neither --force nor --non-interactive
+  // is passed (TTY will prompt, non-TTY falls through to the gate that
+  // throws if the target isn't empty), false if --non-interactive is passed.
   const forceFlag: InitOptions['force'] = values.force
     ? true
-    : values.interactive === false
+    : values['non-interactive']
       ? false
       : 'prompt';
-  const noInteractive = values.interactive === false;
+  const noInteractive = values['non-interactive'] === true;
 
   const result = await initCommand({
     target,
@@ -454,7 +453,7 @@ Init options:
   --git-author "Name <e>"   Override committer identity for the initial commit
   --package-manager <name>  'npm' | 'pnpm' | 'bun' | 'yarn' (default: detected)
   --force                   Overwrite existing files in the target dir
-  --no-interactive          Skip all prompts (default in CI / non-TTY)
+  --non-interactive         Skip all prompts (default in CI / non-TTY)
 
 Environment:
   ANTHROPIC_API_KEY   Required for Anthropic provider

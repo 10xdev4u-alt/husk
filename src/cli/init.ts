@@ -20,6 +20,8 @@
  *   - isEmptyDir() / isExistingProject() helpers used by all of the above
  */
 
+import { spawnSync as _spawnSync } from 'node:child_process';
+import { existsSync } from 'node:fs';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
@@ -169,7 +171,6 @@ export function detectPackageManager(
 
   // 2. Lockfile in the target dir. Falls back to sync fs to keep the
   //    function pure-ish (no async needed for existsSync on small dirs).
-  const { existsSync } = require('node:fs') as typeof import('node:fs');
   if (existsSync(join(targetDir, 'pnpm-lock.yaml'))) return 'pnpm';
   if (existsSync(join(targetDir, 'bun.lock')) || existsSync(join(targetDir, 'bun.lockb')))
     return 'bun';
@@ -210,10 +211,9 @@ export function runInstall(
   env: NodeJS.ProcessEnv = process.env,
 ): number {
   if (env.HUSK_INIT_SKIP_INSTALL === '1') return 0;
-  const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
   const [cmd, ...args] = getInstallCommand(pm);
   if (!cmd) return 1;
-  const result = spawnSync(cmd, args, {
+  const result = _spawnSync(cmd, args, {
     cwd: targetDir,
     stdio: 'inherit',
     env,
@@ -239,11 +239,10 @@ export function runGitInit(
   options: { author?: string } = {},
 ): number {
   if (env.HUSK_INIT_SKIP_GIT === '1') return 0;
-  const { spawnSync } = require('node:child_process') as typeof import('node:child_process');
   const spawn = (args: string[]) => {
     const [cmd, ...rest] = args;
     if (!cmd) return { status: 1 };
-    return spawnSync(cmd, rest, {
+    return _spawnSync(cmd, rest, {
       cwd: targetDir,
       stdio: 'pipe',
       env,
