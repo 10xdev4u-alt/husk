@@ -69,6 +69,15 @@ export interface InitOptions {
    * global git config is set to (git will use that out of the box).
    */
   gitAuthor?: string;
+  /**
+   * When true, never prompt for input even in a TTY context. Useful
+   * for AI agents, CI, and any scripted invocation. Defaults to
+   * false (prompt when TTY + option is missing).
+   *
+   * If HUSK_INIT_NON_INTERACTIVE=1 is set in the env, this is
+   * forced to true regardless of what the caller passed.
+   */
+  noInteractive?: boolean;
 }
 
 /** Result of running init — useful for tests and for the CLI to print a summary. */
@@ -320,13 +329,47 @@ export async function prompt(question: string, options: PromptOptions = {}): Pro
 
 /** Entry point for the `husk init` command. */
 export async function initCommand(options: InitOptions): Promise<InitResult> {
-  const provider = options.provider ?? 'anthropic';
-  const template = options.template ?? 'minimal';
+  let provider = options.provider ?? 'anthropic';
+  let template = options.template ?? 'minimal';
   const projectDir = resolve(options.target);
-  const force = options.force ?? false;
+  let force = options.force ?? false;
+  const interactive = !options.noInteractive && process.env.HUSK_INIT_NON_INTERACTIVE !== '1';
 
-  // Overwrite gate. We throw (not warn) because silently clobbering a
-  // user's existing files is the wrong default for a scaffolder.
+  // Interactive prompts for missing options. Only runs in a TTY
+  // and only when the caller didn't pass the value via flag.
+  if (interactive) {
+    if (options.provider === undefined) {
+      const answer = await prompt('Which provider should the example use?', {
+        default: 'anthropic',
+        choices: ['anthropic', 'openai'],
+        nonTTYDefault: 'anthropic',
+      });
+      provider = answer as InitProvider;
+    }
+    if (options.template === undefined) {
+      const answer = await prompt('Which template?', {
+        default: 'minimal',
+        choices: ['minimal', 'full'],
+        nonTTYDefault: 'minimal',
+      });
+      template = answer as InitTemplate;
+    }
+  }
+
+  // Overwrite gate. The 'prompt' value triggers an interactive ask;
+  // true / false behave as the boolean they coerce to.
+  if (force === 'prompt') {
+    if (interactive && (await isExistingProject(projectDir))) {
+      const answer = await prompt('Target is not empty. Overwrite? [y/N]', {
+        default: 'n',
+        nonTTYDefault: 'n',
+      });
+      force = answer.toLowerCase().startsWith('y');
+    } else {
+      force = false;
+    }
+  }
+
   if (!force && (await isExistingProject(projectDir))) {
     throw new InitError(
       `Target directory ${projectDir} is not empty. Re-run with --force to overwrite existing files, or pass a different <dir>.`,
