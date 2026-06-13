@@ -18,6 +18,7 @@ export default defineConfig({
     index: 'src/index.ts',
     'cli/index': 'src/cli/index.ts',
     'otel/index': 'src/otel/index.ts',
+    'mcp/index': 'src/mcp/index.ts',
   },
   format: ['esm'],
   target: 'node18',
@@ -36,5 +37,5 @@ export default defineConfig({
   },
   // Externalize peer dependencies so the bundle stays small and
   // consumers can use their own versions if needed.
-  external: ['@anthropic-ai/sdk', 'openai', '@opentelemetry/api'],
+  external: ['@anthropic-ai/sdk', 'openai', '@opentelemetry/api', '@modelcontextprotocol/sdk'],
 });
