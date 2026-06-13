@@ -22,6 +22,9 @@
 
 import type { JSONSchema, JSONSchemaField, ToolDefinition } from '../core/types.js';
 
+export { matchesFilter } from './vector-filter.js';
+export type { VectorFilter } from './vector-filter.js';
+
 // ───────────────────────────────────────────────────────────────────
 // VectorStore — the storage interface
 // ───────────────────────────────────────────────────────────────────
@@ -68,7 +71,6 @@ export interface SearchResult {
  * (sqlite-vec: WHERE clauses on auxiliary columns; in-memory:
  * straight object comparison; cloud: provider-specific filters).
  */
-export type VectorFilter = Readonly<Record<string, unknown>>;
 
 export interface VectorStore {
   /** Add or update a memory item. */
@@ -82,7 +84,7 @@ export interface VectorStore {
   search(
     queryEmbedding: readonly number[],
     topK: number,
-    options?: { readonly filter?: VectorFilter },
+    options?: { readonly filter?: import('./vector-filter.js').VectorFilter },
   ): Promise<readonly SearchResult[]>;
   /** Remove a memory by id. No-op if not present. */
   remove(id: string): Promise<void>;

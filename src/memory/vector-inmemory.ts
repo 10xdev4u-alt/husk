@@ -17,7 +17,7 @@
  * - hnswlib-node (in-process, true ANN)
  */
 
-import type { MemoryItem, SearchResult, VectorStore } from './vector.js';
+import { type MemoryItem, type SearchResult, type VectorStore, matchesFilter } from './vector.js';
 
 export class InMemoryVectorStore implements VectorStore {
   private readonly items: Map<string, MemoryItem> = new Map();
@@ -26,12 +26,20 @@ export class InMemoryVectorStore implements VectorStore {
     this.items.set(item.id, item);
   }
 
-  async search(queryEmbedding: readonly number[], topK: number): Promise<readonly SearchResult[]> {
+  async search(
+    queryEmbedding: readonly number[],
+    topK: number,
+    options?: { readonly filter?: import('./vector.js').VectorFilter },
+  ): Promise<readonly SearchResult[]> {
     if (this.items.size === 0) return [];
     if (topK <= 0) return [];
 
+    const filter = options?.filter;
     const scored: SearchResult[] = [];
     for (const item of this.items.values()) {
+      // Apply metadata filter before scoring (cheaper than scoring
+      // then discarding).
+      if (filter && !matchesFilter(item.metadata ?? {}, filter)) continue;
       const score = cosineSimilarity(queryEmbedding, item.embedding);
       scored.push({
         id: item.id,
