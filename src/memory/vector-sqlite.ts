@@ -140,23 +140,25 @@ export const SqliteVectorStore = {
     // Enable WAL for concurrent reads + serialized writes.
     db.exec('PRAGMA journal_mode = WAL');
     // Create the vec0 table if it doesn't exist. The 'embedding'
-    // column is the float[N] vector; we add 'id' and 'content'
-    // as auxiliary text columns for retrieval.
+    // column is the float[N] vector. v0.8.0 adds JSON-encoded
+    // metadata as an auxiliary column so we can filter on it via
+    // WHERE clauses — same shape as matchesFilter()'s input.
     db.exec(`
       CREATE VIRTUAL TABLE IF NOT EXISTS ${tableName} USING vec0(
         id TEXT PRIMARY KEY,
         content TEXT,
+        metadata TEXT,
         embedding float[${dimension}]
       )
     `);
 
     // Prepared statements for the four operations.
     const insertStmt = db.prepare(`
-      INSERT OR REPLACE INTO ${tableName} (id, content, embedding)
-      VALUES (?, ?, ?)
+      INSERT OR REPLACE INTO ${tableName} (id, content, metadata, embedding)
+      VALUES (?, ?, ?, ?)
     `);
     const searchStmt = db.prepare(`
-      SELECT id, content, distance
+      SELECT id, content, metadata, distance
       FROM ${tableName}
       WHERE embedding MATCH ?
       ORDER BY distance
@@ -164,6 +166,22 @@ export const SqliteVectorStore = {
     `);
     const deleteStmt = db.prepare(`DELETE FROM ${tableName} WHERE id = ?`);
     const clearStmt = db.prepare(`DELETE FROM ${tableName}`);
+
+    // JSON-serialize metadata for storage. Round-trip via JSON
+    // keeps the storage uniform (one column, no schema migration
+    // when metadata keys change) and lets the filter use simple
+    // JSON_EXTRACT WHERE clauses.
+    const serializeMeta = (m: Readonly<Record<string, unknown>> | undefined): string =>
+      m ? JSON.stringify(m) : '{}';
+    const deserializeMeta = (s: string | null | undefined): Readonly<Record<string, unknown>> => {
+      if (!s) return {};
+      try {
+        // eslint-disable-next-line @typescript-eslint/no-explicit-any
+        return JSON.parse(s) as Record<string, any>;
+      } catch {
+        return {};
+      }
+    };
     let closed = false;
     const handle: SqliteVectorStoreHandle = {
       async upsert(item: MemoryItem): Promise<void> {
@@ -171,27 +189,41 @@ export const SqliteVectorStore = {
         // item.embedding is number[]; convert to Float32Array.
         // The as Float32Array casts away the readonly.
         const vec = new Float32Array(item.embedding as number[]);
-        insertStmt.run(item.id, item.content, vec);
+        insertStmt.run(item.id, item.content, serializeMeta(item.metadata), vec);
       },
 
       async search(
         queryEmbedding: readonly number[],
         topK: number,
+        options?: { readonly filter?: import('./vector-filter.js').VectorFilter },
       ): Promise<readonly SearchResult[]> {
         if (closed) throw new Error('SqliteVectorStore: store is closed');
-        const rows = searchStmt.all(new Float32Array(queryEmbedding as number[]), topK) as Array<{
+        // We always pull more rows than topK so the metadata filter
+        // can drop non-matches without leaving us with fewer than
+        // topK in the result. 10x is a safe overshoot; sqlite-vec
+        // similarity search is fast even on big result sets.
+        const filter = options?.filter;
+        const limit = filter ? Math.max(topK * 10, 50) : topK;
+        const rows = searchStmt.all(new Float32Array(queryEmbedding as number[]), limit) as Array<{
           id: string;
           content: string;
+          metadata: string | null;
           distance: number;
         }>;
-        // No re-embedding needed for SearchResult.score — sqlite-vec
-        // returns a distance, lower is better. Negate so higher
-        // is better, matching Husk's other VectorStore impls.
-        return rows.map((r) => ({
-          id: r.id,
-          content: r.content,
-          score: -r.distance,
-        }));
+        const { matchesFilter } = await import('./vector-filter.js');
+        const out: SearchResult[] = [];
+        for (const r of rows) {
+          const metadata = deserializeMeta(r.metadata);
+          if (filter && !matchesFilter(metadata, filter)) continue;
+          out.push({
+            id: r.id,
+            content: r.content,
+            score: -r.distance,
+            ...(Object.keys(metadata).length > 0 ? { metadata } : {}),
+          });
+          if (out.length >= topK) break;
+        }
+        return out;
       },
 
       async remove(id: string): Promise<void> {
