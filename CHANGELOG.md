@@ -4,6 +4,40 @@ All notable changes to Husk are documented here. The format follows
 [Keep a Changelog](https://keepachangelog.com/) and the project
 adheres to [Semantic Versioning](https://semver.org/).
 
+## [0.7.0] — 2026-06-13
+
+### Added
+
+- **`defineMcpServer()` MCP server adapter** — the mirror of v0.6.0's `defineMcpTools()`. Wraps a Husk tool set as an MCP server so any MCP-compatible client (Claude Desktop, custom agents) can call those tools. Lazy-loads the SDK + `json-schema-to-zod` bridge on first use. Approval-gated tools are excluded by default; pass `includeApprovalGated: true` to expose them. New `McpServerConfig` + `McpServerHandle` types in the public surface.
+- **`jsonSchemaToZod()` schema adapter** — bridges Husk's `JSONSchema` tool definitions to the Zod (Standard Schema) input the MCP SDK's `registerTool()` expects. Lazy-loads `json-schema-to-zod` on first use; falls back to a hand-rolled converter that covers the common JSONSchema subset (object, string, number, integer, boolean, array, enum). Exotic features fall through to `z.any()`.
+- **`SqliteVectorStore` persistent vector memory** — concrete impl of the `VectorStore` interface that v0.3.0 shipped and v0.5.0 stabilized. Backed by `better-sqlite3` + the `sqlite-vec` extension. Static factory: `await SqliteVectorStore.open({ path, dimension })`. Implements `upsert`, `search`, `remove`, `list`, `clear`, plus a `count()` bonus. Vectors survive process restarts (on-disk storage in a `vec0` virtual table). Drop-in replacement for `InMemoryVectorStore` — same interface, same `SearchResult` shape.
+- **Three new optional peer deps**:
+  - `json-schema-to-zod@^2.8.1` — MCP server schema bridge
+  - `better-sqlite3@^12.0.0` — synchronous SQLite client for the vector store
+  - `sqlite-vec@^0.1.9` — vec0 extension for embedding similarity search
+- **Two new examples**:
+  - `12-mcp-server` — wrap Husk's built-in tools as an MCP server, point Claude Desktop at the stdio transport, see them in the tools menu
+  - `13-vector-store-sqlite` — persistent vector memory with `HashEmbedder` (zero-dep, no API key) and the agent's `defineMemorySearchTool` flow
+
+### Changed
+
+- `McpClient` lifecycle tests now share patterns with the new `defineMcpServer` tests (same FakeClient/FakeServer duck-typing approach).
+- The `/mcp` subpath now ships `defineMcpServer`, `McpServerConfig`, `McpServerHandle`, and the schema-adapter exports alongside the v0.6.0 client surface.
+- `better-sqlite3` is added as a devDep in husk itself so typecheck + tests work; users install it separately as an optional peer when they use `SqliteVectorStore`.
+
+### Performance
+
+- Bundle: 57KB → 60KB (MCP server is ~2KB; SqliteVectorStore is ~3KB; schema adapter is ~1KB).
+- Total tests: 177 → 202 (12 new MCP server + 13 SqliteVectorStore). The 13 SqliteVectorStore tests are `skipIf(Bun)` because `better-sqlite3` doesn't work in Bun's runtime as of 1.3.12; they pass under Node + tsx (the production runtime for Husk users).
+
+### Deferred to v0.8.0
+
+- **Metadata filtering on vector stores** — `MemoryItem.metadata` is preserved in the public API but not yet queryable. A future v0.8 will add `search({ filter: { source: 'email' } })` powered by sqlite-vec's auxiliary columns.
+- **Gemini provider** — lower priority; Ollama covers the OpenAI-compatible case.
+- **More init templates** (`with-tests`, `ESM-only`, `monorepo-aware`).
+- **Real `@opentelemetry/sdk-node` example upgrade** — `09-otel-sdk` shows the bootstrap but uses the bare `api` package; v0.8 will write a runnable version.
+- **Cloud vector store backends** (Qdrant, Pinecone) — same `VectorStore` interface, different impls. Local SQLite is enough for v0.7.
+
 ## [0.6.0] — 2026-06-13
 
 ### Added
