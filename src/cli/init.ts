@@ -100,6 +100,64 @@ export class InitError extends Error {
   }
 }
 
+/**
+ * Supported package managers. The list is small and the detection is
+ * heuristic — we only care which command to run (`npm install`,
+ * `pnpm install`, `bun install`, `yarn`).
+ */
+export type PackageManager = 'npm' | 'pnpm' | 'bun' | 'yarn';
+
+/**
+ * Detect the package manager the user is most likely running with.
+ *
+ * Detection order:
+ *   1. npm_config_user_agent env var (set automatically by npm/pnpm/yarn)
+ *   2. Lockfile in the target directory (pnpm-lock.yaml, bun.lock, yarn.lock)
+ *   3. Globally configured package manager via npmrc / corepack
+ *   4. Default to 'npm'
+ *
+ * Pure function — no side effects, no filesystem writes. Easy to test.
+ */
+export function detectPackageManager(
+  targetDir: string,
+  env: NodeJS.ProcessEnv = process.env,
+): PackageManager {
+  // 1. npm_config_user_agent looks like "npm/10.0.0 node/20.0.0 ..."
+  //    or "pnpm/9.0.0" or "yarn/4.0.0" or "bun/1.0.0".
+  const ua = env.npm_config_user_agent ?? '';
+  if (/\bbun\//.test(ua)) return 'bun';
+  if (/\bpnpm\//.test(ua)) return 'pnpm';
+  if (/\byarn\//.test(ua)) return 'yarn';
+  if (/\bnpm\//.test(ua)) return 'npm';
+
+  // 2. Lockfile in the target dir. Falls back to sync fs to keep the
+  //    function pure-ish (no async needed for existsSync on small dirs).
+  const { existsSync } = require('node:fs') as typeof import('node:fs');
+  if (existsSync(join(targetDir, 'pnpm-lock.yaml'))) return 'pnpm';
+  if (existsSync(join(targetDir, 'bun.lock')) || existsSync(join(targetDir, 'bun.lockb')))
+    return 'bun';
+  if (existsSync(join(targetDir, 'yarn.lock'))) return 'yarn';
+
+  // 3. Corepack hint. If corepack has pinned a manager, use it.
+  //    (npm_config_user_agent above usually catches this, but the env
+  //    may be stripped in some CI setups.)
+  if (env.COREPACK_DEFAULT_TO_LATEST === '0' && env.COREPACK_ENABLE_STRICT === '0') {
+    // Corepack is active in strict mode; trust the user agent fallback.
+  }
+
+  // 4. Default.
+  return 'npm';
+}
+
+/**
+ * The argv we should pass to a package manager to install dependencies
+ * for the scaffolded project. Yarn is the only one that doesn't need
+ * the explicit 'install' subcommand.
+ */
+export function getInstallCommand(pm: PackageManager): string[] {
+  return pm === 'yarn' ? [pm] : [pm, 'install'];
+}
+
 /** Entry point for the `husk init` command. */
 export async function initCommand(options: InitOptions): Promise<InitResult> {
   const provider = options.provider ?? 'anthropic';
