@@ -278,12 +278,16 @@ function makeDefaultAgent(): Agent {
  * `husk init <dir>` — scaffold a new Husk project.
  *
  * Flags:
- *   --provider <name>    'anthropic' (default) or 'openai'
- *   --template <name>    'minimal' (default) or 'full' (adds code-reviewer example)
- *   --skip-install       Don't run package install (the CLI doesn't run it
- *                        automatically today; this is a placeholder for
- *                        future auto-install behavior)
- *   -h, --help           Show init-specific help
+ *   --provider <name>         'anthropic' (default) or 'openai'
+ *   --template <name>         'minimal' (default) or 'full' (adds code-reviewer example)
+ *   --install                 Auto-run the detected package manager's install
+ *   --git                     Auto-init a git repo and create an initial commit
+ *   --git-author "Name <e>"   Override committer identity for the initial commit
+ *   --package-manager <name>  'npm' | 'pnpm' | 'bun' | 'yarn' (default: detected)
+ *   --force                   Overwrite existing files in the target dir
+ *   --no-interactive          Skip all prompts (default in CI / non-TTY)
+ *   --skip-install            Alias for the absence of --install (placeholder)
+ *   -h, --help                Show init-specific help
  */
 async function initCliCommand(): Promise<void> {
   const { values, positionals } = parseArgs({
@@ -291,6 +295,12 @@ async function initCliCommand(): Promise<void> {
     options: {
       provider: { type: 'string' },
       template: { type: 'string' },
+      install: { type: 'boolean' },
+      git: { type: 'boolean' },
+      'git-author': { type: 'string' },
+      'package-manager': { type: 'string' },
+      force: { type: 'boolean' },
+      interactive: { type: 'boolean' },
       'skip-install': { type: 'boolean' },
       help: { type: 'boolean', short: 'h' },
     },
@@ -305,15 +315,24 @@ Usage:
   husk init <dir> [options]
 
 Options:
-  --provider <name>    'anthropic' (default) or 'openai'
-  --template <name>    'minimal' (default) or 'full'
-  --skip-install       Skip the install step (no-op for now)
-  -h, --help           Show this help
+  --provider <name>         'anthropic' (default) or 'openai'
+  --template <name>         'minimal' (default) or 'full' (adds code-reviewer example)
+  --install                 Auto-run the detected package manager's install
+  --git                     Auto-init a git repo and create an initial commit
+  --git-author "Name <e>"   Override committer identity for the initial commit
+  --package-manager <name>  'npm' | 'pnpm' | 'bun' | 'yarn' (default: detected)
+  --force                   Overwrite existing files in the target dir
+  --no-interactive          Skip all prompts (default in CI / non-TTY)
+  --skip-install            Alias for the absence of --install (placeholder)
+  -h, --help                Show this help
 
 Examples:
   husk init my-agent
   husk init my-agent --provider openai
   husk init my-agent --template full
+  husk init my-agent --git --install           # git + npm install in one go
+  husk init my-agent --force                   # overwrite an existing dir
+  husk init my-agent --no-interactive          # CI / scripted use
 `);
     return;
   }
@@ -341,22 +360,56 @@ Examples:
     process.exit(2);
   }
 
+  // Install / skip-install are explicit opt-ins / opt-outs. --install
+  // wins if both are passed (the user clearly meant "do it").
+  const installFlag = values.install ? true : values['skip-install'] ? false : undefined;
+  // Force: true if --force, 'prompt' if --interactive and no --force,
+  // false otherwise. (No dedicated --prompt flag — the default in TTY
+  // is to ask, so the absence of --force is implicitly 'prompt'.)
+  const forceFlag: InitOptions['force'] = values.force
+    ? true
+    : values.interactive === false
+      ? false
+      : 'prompt';
+  const noInteractive = values.interactive === false;
+
   const result = await initCommand({
     target,
     provider,
     template,
-    ...(values['skip-install'] ? { skipInstall: true } : {}),
+    ...(installFlag !== undefined ? { install: installFlag } : {}),
+    ...(values.git ? { git: true } : {}),
+    ...(values['git-author'] ? { gitAuthor: String(values['git-author']) } : {}),
+    ...(values['package-manager']
+      ? { packageManager: values['package-manager'] as InitOptions['packageManager'] }
+      : {}),
+    force: forceFlag,
+    ...(noInteractive ? { noInteractive: true } : {}),
   });
 
   // eslint-disable-next-line no-console
   console.log(`\n✓ Scaffolded ${result.template} Husk project at ${result.projectDir}`);
   // eslint-disable-next-line no-console
-  console.log(`  Provider: ${result.provider}`);
+  console.log(`  Provider:        ${result.provider}`);
   // eslint-disable-next-line no-console
-  console.log(`  Files created: ${result.files.length}`);
+  console.log(`  Package manager: ${result.packageManager}`);
+  // eslint-disable-next-line no-console
+  console.log(`  Files created:   ${result.files.length}`);
   for (const f of result.files) {
     // eslint-disable-next-line no-console
     console.log(`    - ${f}`);
+  }
+  if (result.installExitCode !== undefined) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `  Install:         ${result.installExitCode === 0 ? 'success' : `failed (exit ${result.installExitCode})`}`,
+    );
+  }
+  if (result.gitExitCode !== undefined) {
+    // eslint-disable-next-line no-console
+    console.log(
+      `  Git init:        ${result.gitExitCode === 0 ? 'success' : `failed (exit ${result.gitExitCode})`}`,
+    );
   }
   // eslint-disable-next-line no-console
   console.log('\nNext steps:');
@@ -394,9 +447,14 @@ Eval options:
   <dir>              A directory; all *.ts/*.js/*.mjs files are loaded
 
 Init options:
-  --provider <name>  'anthropic' (default) or 'openai'
-  --template <name>  'minimal' (default) or 'full' (adds code-reviewer example)
-  --skip-install     Skip the install step (no-op for now)
+  --provider <name>         'anthropic' (default) or 'openai'
+  --template <name>         'minimal' (default) or 'full' (adds code-reviewer example)
+  --install                 Auto-run the detected package manager's install
+  --git                     Auto-init a git repo and create an initial commit
+  --git-author "Name <e>"   Override committer identity for the initial commit
+  --package-manager <name>  'npm' | 'pnpm' | 'bun' | 'yarn' (default: detected)
+  --force                   Overwrite existing files in the target dir
+  --no-interactive          Skip all prompts (default in CI / non-TTY)
 
 Environment:
   ANTHROPIC_API_KEY   Required for Anthropic provider
