@@ -32,7 +32,7 @@ function makeFakeTracer(): { tracer: Tracer; calls: RecordedCall[]; spans: Span[
     calls.push({ method, args, spanId: span.context.spanId });
   };
 
-  const makeSpan = (options: SpanOptions): Span => {
+  const makeSpan = (_options: SpanOptions): Span => {
     const id = String(nextId++);
     const ctx = { traceId: 'trace-1', spanId: id };
     const span: Span = {

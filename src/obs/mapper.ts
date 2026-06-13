@@ -38,7 +38,7 @@ export class EventTracer {
     switch (event.type) {
       case 'agent:start': {
         this.traceSpan = this.tracer.startSpan({
-          name: `agent.run`,
+          name: 'agent.run',
           kind: 'internal',
           attributes: {
             'husk.input': event.input,
