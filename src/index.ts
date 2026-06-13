@@ -89,6 +89,20 @@ export {
   objectField,
 } from './tools/registry.js';
 
+// Tool validation framework
+export {
+  defineValidation,
+  defineValidationSet,
+  normalizeRules,
+  pathAllowed,
+  commandDenylist,
+  maxFieldSize,
+  noShellMetacharacters,
+  type ValidationContext,
+  type ValidationRule,
+  type ValidationRuleSet,
+} from './tools/validation.js';
+
 // Built-in tools
 export {
   Read,
