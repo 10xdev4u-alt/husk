@@ -414,6 +414,6 @@ Examples:
 `);
 }
 
-const VERSION = '0.3.0-dev.0';
+const VERSION = '0.4.0';
 
 await main();
